@@ -13,6 +13,9 @@ namespace CardGame.AI.Strategies;
 /// <list type="bullet">
 /// <item>メインフェーズ1では、まず損をしない魔法を手札から発動する(全体破壊は相手のモンスターの方が多いときだけ)。対象を取る魔法は、相手の見えているモンスターのうち最も攻撃力の高いものを狙う。</item>
 /// <item>次に、相手の攻撃表示モンスター以上の攻撃力があれば、最も攻撃力の高いモンスターを召喚する。なければ最も守備力の高いモンスターをセットする。上級モンスターは、攻撃力の低いモンスターから順にリリースし、リリースするどのモンスターよりも強くなる場合だけアドバンス召喚する(アドバンスセットはしない)。</item>
+/// <item>メインフェーズ1では、召喚の後、攻撃に回せる守備表示・裏側守備表示のモンスターを攻撃表示にする(裏側は反転召喚)。
+/// 攻撃に回せるのは、相手の攻撃表示モンスター以上の攻撃力があり、相手の場が空か一方的に破壊できる相手がいる場合。</item>
+/// <item>メインフェーズ2では、相手の攻撃表示モンスターより攻撃力が低く、守備力では耐えられる攻撃表示のモンスターを守備表示にする。</item>
 /// <item>メインフェーズでは、召喚の後に手札の罠をすべてセットする。</item>
 /// <item>バトルフェーズでは、戦闘で一方的に破壊できる相手にだけ攻撃する(相打ちや返り討ちは避ける)。相手の場が空なら直接攻撃する。</item>
 /// <item>相手の攻撃宣言・召喚に対しては、破壊する罠を優先して発動する。攻撃を無効にするだけの罠は、その戦闘で損をするときだけ使う。
@@ -43,9 +46,9 @@ public sealed class SimpleCpuStrategy
         CpuAction advance = new CpuAdvancePhaseAction();
         return duel.CurrentPhase switch
         {
-            Phase.Main1 => DecideSpell(duel) ?? DecideSummon(duel) ?? DecideSetTrap(duel) ?? advance,
+            Phase.Main1 => DecideSpell(duel) ?? DecideSummon(duel) ?? DecideOffensivePositionChange(duel) ?? DecideSetTrap(duel) ?? advance,
             Phase.Battle => DecideAttack(duel) ?? advance,
-            Phase.Main2 => DecideSetTrap(duel) ?? advance,
+            Phase.Main2 => DecideDefensivePositionChange(duel) ?? DecideSetTrap(duel) ?? advance,
             _ => advance,
         };
     }
@@ -140,11 +143,7 @@ public sealed class SimpleCpuStrategy
             .ToList();
         if (candidates.Count == 0) return null;
 
-        var opponentBestAttack = duel.OpponentPlayer.MonsterZone
-            .Where(m => m.Position == BattlePosition.FaceUpAttack)
-            .Select(m => m.Card.Attack)
-            .DefaultIfEmpty(0)
-            .Max();
+        var opponentBestAttack = OpponentBestAttack(duel);
 
         var strongest = candidates.MaxBy(c => c.Card.Attack);
         if (strongest.Card.Attack >= opponentBestAttack)
@@ -172,6 +171,43 @@ public sealed class SimpleCpuStrategy
 
     private static IReadOnlyList<FieldMonster>? NullIfEmpty(IReadOnlyList<FieldMonster> tributes) =>
         tributes.Count == 0 ? null : tributes;
+
+    // ---- 表示形式 ----
+
+    /// <summary>攻撃に回せる守備表示・裏側守備表示のモンスターを攻撃表示にする(裏側は反転召喚)。</summary>
+    private static CpuAction? DecideOffensivePositionChange(Duel duel)
+    {
+        var opponentBestAttack = OpponentBestAttack(duel);
+        var monster = duel.CurrentPlayer.MonsterZone
+            .Where(m => m.Position != BattlePosition.FaceUpAttack && duel.CanChangePosition(m).IsSuccess)
+            .Where(m => m.Card.Attack >= opponentBestAttack && CanAttackProfitably(duel, m.Card.Attack))
+            .MaxBy(m => m.Card.Attack);
+
+        return monster is null ? null : new CpuChangePositionAction(monster);
+    }
+
+    /// <summary>相手の攻撃に耐えられない攻撃表示のモンスターを、守備力で耐えられるなら守備表示にする。</summary>
+    private static CpuAction? DecideDefensivePositionChange(Duel duel)
+    {
+        var opponentBestAttack = OpponentBestAttack(duel);
+        var monster = duel.CurrentPlayer.MonsterZone
+            .Where(m => m.Position == BattlePosition.FaceUpAttack && duel.CanChangePosition(m).IsSuccess)
+            .FirstOrDefault(m => m.Card.Attack < opponentBestAttack && m.Card.Defense >= opponentBestAttack);
+
+        return monster is null ? null : new CpuChangePositionAction(monster);
+    }
+
+    /// <summary>相手の場が空か、その攻撃力で一方的に破壊できる相手がいるか。</summary>
+    private static bool CanAttackProfitably(Duel duel, int attack) =>
+        duel.OpponentPlayer.MonsterZone.Count == 0
+        || duel.OpponentPlayer.MonsterZone.Any(t => CanDestroyWithoutLoss(attack, t));
+
+    private static int OpponentBestAttack(Duel duel) =>
+        duel.OpponentPlayer.MonsterZone
+            .Where(m => m.Position == BattlePosition.FaceUpAttack)
+            .Select(m => m.Card.Attack)
+            .DefaultIfEmpty(0)
+            .Max();
 
     // ---- 罠 ----
 
@@ -249,9 +285,11 @@ public sealed class SimpleCpuStrategy
         return null;
     }
 
-    private static bool CanDestroyWithoutLoss(FieldMonster attacker, FieldMonster target)
+    private static bool CanDestroyWithoutLoss(FieldMonster attacker, FieldMonster target) =>
+        CanDestroyWithoutLoss(attacker.Card.Attack, target);
+
+    private static bool CanDestroyWithoutLoss(int attack, FieldMonster target)
     {
-        var attack = attacker.Card.Attack;
         return target.Position switch
         {
             BattlePosition.FaceUpAttack => attack > target.Card.Attack,

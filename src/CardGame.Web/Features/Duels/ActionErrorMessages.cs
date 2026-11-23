@@ -38,6 +38,9 @@ public static class ActionErrorMessages
         ActionError.NoResponseWindow => "今は罠を発動できません。",
         ActionError.NotATrap => "罠カードではありません。",
         ActionError.TrapSetThisTurn => "罠はセットしたターンには発動できません。",
+        ActionError.MonsterNotOnYourField => "自分の場のモンスターを選んでください。",
+        ActionError.SummonedThisTurn => "召喚・セットしたターンには表示形式を変更できません。",
+        ActionError.PositionAlreadyChanged => "表示形式の変更は1ターンに1回までです。",
         _ => error.ToString(),
     };
 }

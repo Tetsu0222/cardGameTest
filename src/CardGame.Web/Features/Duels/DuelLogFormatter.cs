@@ -21,6 +21,9 @@ public static class DuelLogFormatter
         DuelLogKind.Tributed => $"{entry.PlayerName}は「{entry.CardName}」をリリース",
         DuelLogKind.TrapActivated => $"{entry.PlayerName}は罠「{entry.CardName}」を発動",
         DuelLogKind.AttackNegated => $"{entry.PlayerName}の「{entry.CardName}」の攻撃は無効になった",
+        DuelLogKind.ChangedToAttackPosition => $"{entry.PlayerName}は「{entry.CardName}」を攻撃表示に変更",
+        DuelLogKind.ChangedToDefensePosition => $"{entry.PlayerName}は「{entry.CardName}」を守備表示に変更",
+        DuelLogKind.FlipSummoned => $"{entry.PlayerName}は「{entry.CardName}」を反転召喚",
         DuelLogKind.SpellActivated when entry.TargetCardName is not null || entry.IsTargetHidden =>
             $"{entry.PlayerName}は「{entry.CardName}」を発動({TargetText(entry)}を対象)",
         DuelLogKind.SpellActivated => $"{entry.PlayerName}は「{entry.CardName}」を発動",

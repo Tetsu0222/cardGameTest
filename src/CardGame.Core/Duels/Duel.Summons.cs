@@ -102,7 +102,7 @@ public sealed partial class Duel
         }
 
         var card = CurrentPlayer.Hand[handIndex];
-        var summoned = CurrentPlayer.SummonFromHand(handIndex, position, slotIndex)
+        var summoned = CurrentPlayer.SummonFromHand(handIndex, position, slotIndex, TurnCount)
             ?? throw new InvalidOperationException("Summon passed validation but could not be placed.");
         NormalSummonUsed = true;
 

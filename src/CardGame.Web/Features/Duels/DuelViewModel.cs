@@ -124,7 +124,7 @@ public sealed class DuelViewModel
                 return SelectedAttacker is null ? "攻撃するモンスターを選んでください。" : "攻撃対象を選んでください。";
             }
 
-            return Duel.CurrentPhase is Phase.Main1 or Phase.Main2 ? "カードを召喚・発動・セットできます。" : "";
+            return Duel.CurrentPhase is Phase.Main1 or Phase.Main2 ? "カードを召喚・発動・セットしたり、モンスターの表示形式を変更したりできます。" : "";
         }
     }
 
@@ -286,6 +286,35 @@ public sealed class DuelViewModel
 
     public Task DirectAttackAsync() => AttackAsync(target: null);
 
+    // ---- 表示形式 ----
+
+    /// <summary>
+    /// 自分のモンスターの下に出す、表示形式を変更するボタンの文言。今変更できなければ null。
+    /// 召喚・発動などの操作を選んでいる途中は、誤操作を避けるため出さない。
+    /// </summary>
+    public string? PositionChangeLabelFor(FieldMonster monster)
+    {
+        if (!IsHumanTurn || HasPendingOperation || SelectedAttacker is not null) return null;
+        if (!Duel.CanChangePosition(monster).IsSuccess) return null;
+
+        return monster.Position switch
+        {
+            BattlePosition.FaceUpAttack => "守備表示に",
+            BattlePosition.FaceUpDefense => "攻撃表示に",
+            _ => "反転召喚",
+        };
+    }
+
+    /// <summary>表示形式を変更する(裏側なら反転召喚)。反転召喚に CPU が罠で応じる場合は、その処理まで行う。</summary>
+    public async Task ChangePositionAsync(FieldMonster monster)
+    {
+        if (PositionChangeLabelFor(monster) is null) return;
+
+        ErrorMessage = null;
+        Perform(() => Duel.ChangePosition(monster));
+        await LetCpuRespondAsync();
+    }
+
     /// <summary>選択途中の召喚・セット・発動・攻撃をやめる。</summary>
     public void CancelSelection() => ClearSelection();
 
@@ -395,6 +424,10 @@ public sealed class DuelViewModel
 
             case CpuSummonAction { Tributes: { } tributes }:
                 _highlightedMonsters.UnionWith(tributes);
+                break;
+
+            case CpuChangePositionAction change:
+                _highlightedMonsters.Add(change.Monster);
                 break;
 
             case CpuActivateTrapAction when Duel.PendingResponse is { } window:

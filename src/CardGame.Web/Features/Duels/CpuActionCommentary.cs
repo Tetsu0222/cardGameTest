@@ -4,7 +4,7 @@ using CardGame.Core.Players;
 
 namespace CardGame.Web.Features.Duels;
 
-/// <summary>CPU がこれから行う1手を、実況の文言にする。実行前(手札にカードが残っている状態)に呼ぶ。</summary>
+/// <summary>CPU がこれから行う1手を、実況の文言にする。実行前(手札のカードや表示形式が変わる前)に呼ぶ。</summary>
 public static class CpuActionCommentary
 {
     /// <returns>実況。フェーズ移動など、実況しない手は null。</returns>
@@ -24,6 +24,13 @@ public static class CpuActionCommentary
 
         CpuActivateTrapAction trap =>
             new Commentary($"{cpu.Name}は罠「{trap.Trap.Card.Name}」を発動", trap.Trap.Card),
+
+        CpuChangePositionAction change => change.Monster.Position switch
+        {
+            BattlePosition.FaceDownDefense => new Commentary($"{cpu.Name}は「{change.Monster.Card.Name}」を反転召喚", change.Monster.Card),
+            BattlePosition.FaceUpAttack => new Commentary($"{cpu.Name}は「{change.Monster.Card.Name}」を守備表示に変更"),
+            _ => new Commentary($"{cpu.Name}は「{change.Monster.Card.Name}」を攻撃表示に変更"),
+        },
 
         CpuAttackAction { Target: null } attack =>
             new Commentary($"{cpu.Name}の「{attack.Attacker.Card.Name}」のダイレクトアタック"),

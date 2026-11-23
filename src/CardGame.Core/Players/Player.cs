@@ -66,11 +66,12 @@ public sealed class Player
     // ---- モンスターゾーン ----
 
     /// <summary>手札のカードを指定したマスに出す。手札の範囲外、またはマスが範囲外・使用中なら null。</summary>
-    public FieldMonster? SummonFromHand(int handIndex, BattlePosition position, int slotIndex)
+    /// <param name="summonedTurn">召喚したターン(そのターンには表示形式を変更できない)。</param>
+    public FieldMonster? SummonFromHand(int handIndex, BattlePosition position, int slotIndex, int summonedTurn = 0)
     {
         if (!IsSlotEmpty(slotIndex)) return null;
         var card = TakeFromHand(handIndex);
-        return card is null ? null : PlaceMonster(card, position, slotIndex);
+        return card is null ? null : PlaceMonster(card, position, slotIndex, summonedTurn);
     }
 
     /// <summary>カードを空いているマスのうち一番左に置く(盤面の初期構築用)。空きがなければ null。</summary>
@@ -81,9 +82,10 @@ public sealed class Player
     }
 
     /// <summary>カードを指定したマスに置く。マスが範囲外・使用中なら null。</summary>
-    public FieldMonster? PlaceMonster(CardData card, BattlePosition position, int slotIndex)
+    /// <param name="summonedTurn">場に出たターン。盤面の初期構築では 0(どのターンでも表示形式を変更できる)。</param>
+    public FieldMonster? PlaceMonster(CardData card, BattlePosition position, int slotIndex, int summonedTurn = 0)
     {
-        var monster = new FieldMonster(card, position);
+        var monster = new FieldMonster(card, position, summonedTurn);
         return _monsterZone.Place(slotIndex, monster) ? monster : null;
     }
 

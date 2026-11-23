@@ -36,7 +36,9 @@
                    IsClickable="Vm.IsMonsterClickable"
                    OnMonsterClick="Vm.ClickMonsterAsync"
                    IsEmptySlotClickable="Vm.CanPlaceInMonsterSlot"
-                   OnEmptySlotClick="Vm.PlaceInMonsterSlotAsync" />
+                   OnEmptySlotClick="Vm.PlaceInMonsterSlotAsync"
+                   PositionChangeLabel="Vm.PositionChangeLabelFor"
+                   OnChangePosition="Vm.ChangePositionAsync" />
 
         <SpellTrapZoneView Slots="Vm.Human.SpellTrapSlots"
                            IsCardClickable="Vm.CanActivateSetCard"

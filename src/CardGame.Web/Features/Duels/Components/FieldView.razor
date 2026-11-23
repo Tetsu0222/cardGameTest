@@ -1,26 +1,38 @@
-@* 1人分のモンスターゾーン(5マス)。マスの位置は固定で、モンスターが場を離れても他のモンスターは動かない。 *@
+@* 1人分のモンスターゾーン(5マス)。マスの位置は固定で、モンスターが場を離れても他のモンスターは動かない。自分の場では、表示形式を変更するボタンも出す。 *@
 <div class="field">
     @for (var i = 0; i < Slots.Count; i++)
     {
         var monster = Slots[i];
-        <div class="slot" @key="i">
-            @if (monster is null)
+        <div class="slot-column" @key="i">
+            <div class="slot">
+                @if (monster is null)
+                {
+                    var slotIndex = i;
+                    var clickable = IsEmptySlotClickable?.Invoke(slotIndex) ?? false;
+                    <div class="empty @(clickable ? "clickable" : null)"
+                         @onclick="() => HandleEmptySlotClick(slotIndex, clickable)"></div>
+                }
+                else
+                {
+                    <CardView Card="monster.Card"
+                              Hidden="IsOpponentField && monster.Position == BattlePosition.FaceDownDefense"
+                              Defense="monster.Position != BattlePosition.FaceUpAttack"
+                              Label="LabelFor(monster)"
+                              Selected="monster == Selected || IsTribute(monster)"
+                              Highlighted="Highlighted?.Contains(monster) ?? false"
+                              Clickable="IsClickable?.Invoke(monster) ?? false"
+                              OnClick="() => OnMonsterClick.InvokeAsync(monster)" />
+                }
+            </div>
+            @if (PositionChangeLabel is not null)
             {
-                var slotIndex = i;
-                var clickable = IsEmptySlotClickable?.Invoke(slotIndex) ?? false;
-                <div class="empty @(clickable ? "clickable" : null)"
-                     @onclick="() => HandleEmptySlotClick(slotIndex, clickable)"></div>
-            }
-            else
-            {
-                <CardView Card="monster.Card"
-                          Hidden="IsOpponentField && monster.Position == BattlePosition.FaceDownDefense"
-                          Defense="monster.Position != BattlePosition.FaceUpAttack"
-                          Label="LabelFor(monster)"
-                          Selected="monster == Selected || IsTribute(monster)"
-                          Highlighted="Highlighted?.Contains(monster) ?? false"
-                          Clickable="IsClickable?.Invoke(monster) ?? false"
-                          OnClick="() => OnMonsterClick.InvokeAsync(monster)" />
+                @* 表示形式を変更するボタン。ボタンがないマスも同じ高さを確保して、マスの位置をそろえる *@
+                <div class="slot-action">
+                    @if (monster is not null && PositionChangeLabel(monster) is { } label)
+                    {
+                        <button class="btn btn-sm btn-light" @onclick="() => OnChangePosition.InvokeAsync(monster)">@label</button>
+                    }
+                </div>
             }
         </div>
     }
@@ -48,6 +60,14 @@
     [Parameter] public Func<int, bool>? IsEmptySlotClickable { get; set; }
 
     [Parameter] public EventCallback<int> OnEmptySlotClick { get; set; }
+
+    /// <summary>
+    /// 表示形式を変更するボタンの文言(自分の場で使う)。null を返したモンスターにはボタンを出さない。
+    /// このパラメータ自体が null なら、ボタンの行を作らない(相手の場)。
+    /// </summary>
+    [Parameter] public Func<FieldMonster, string?>? PositionChangeLabel { get; set; }
+
+    [Parameter] public EventCallback<FieldMonster> OnChangePosition { get; set; }
 
     private async Task HandleEmptySlotClick(int slotIndex, bool clickable)
     {
