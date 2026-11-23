@@ -1,25 +1,33 @@
-@* 1人分のモンスターゾーン(5枠)。 *@
+@* 1人分のモンスターゾーン(5マス)。マスの位置は固定で、モンスターが場を離れても他のモンスターは動かない。 *@
 <div class="field">
-    @foreach (var monster in Monsters)
+    @for (var i = 0; i < Slots.Count; i++)
     {
-        <div class="slot" @key="monster">
-            <CardView Card="monster.Card"
-                      Hidden="IsOpponentField && monster.Position == BattlePosition.FaceDownDefense"
-                      Defense="monster.Position != BattlePosition.FaceUpAttack"
-                      Label="LabelFor(monster)"
-                      Selected="monster == Selected"
-                      Clickable="IsClickable?.Invoke(monster) ?? false"
-                      OnClick="() => OnMonsterClick.InvokeAsync(monster)" />
+        var monster = Slots[i];
+        <div class="slot" @key="i">
+            @if (monster is null)
+            {
+                var slotIndex = i;
+                var clickable = IsEmptySlotClickable?.Invoke(slotIndex) ?? false;
+                <div class="empty @(clickable ? "clickable" : null)"
+                     @onclick="() => HandleEmptySlotClick(slotIndex, clickable)"></div>
+            }
+            else
+            {
+                <CardView Card="monster.Card"
+                          Hidden="IsOpponentField && monster.Position == BattlePosition.FaceDownDefense"
+                          Defense="monster.Position != BattlePosition.FaceUpAttack"
+                          Label="LabelFor(monster)"
+                          Selected="monster == Selected"
+                          Clickable="IsClickable?.Invoke(monster) ?? false"
+                          OnClick="() => OnMonsterClick.InvokeAsync(monster)" />
+            }
         </div>
-    }
-    @for (var i = Monsters.Count; i < Player.MonsterZoneSize; i++)
-    {
-        <div class="slot empty"></div>
     }
 </div>
 
 @code {
-    [Parameter, EditorRequired] public required IReadOnlyList<FieldMonster> Monsters { get; set; }
+    /// <summary>モンスターゾーンのマス(左から順)。空きマスは null。</summary>
+    [Parameter, EditorRequired] public required IReadOnlyList<FieldMonster?> Slots { get; set; }
 
     /// <summary>相手の場か。相手の裏側モンスターは中身を隠す。</summary>
     [Parameter] public bool IsOpponentField { get; set; }
@@ -27,6 +35,19 @@
     [Parameter] public FieldMonster? Selected { get; set; }
     [Parameter] public Func<FieldMonster, bool>? IsClickable { get; set; }
     [Parameter] public EventCallback<FieldMonster> OnMonsterClick { get; set; }
+
+    /// <summary>空きマスを選べるか(召喚先の選択中など)。引数はマスの位置。</summary>
+    [Parameter] public Func<int, bool>? IsEmptySlotClickable { get; set; }
+
+    [Parameter] public EventCallback<int> OnEmptySlotClick { get; set; }
+
+    private async Task HandleEmptySlotClick(int slotIndex, bool clickable)
+    {
+        if (clickable)
+        {
+            await OnEmptySlotClick.InvokeAsync(slotIndex);
+        }
+    }
 
     private string? LabelFor(FieldMonster monster) =>
         !IsOpponentField && monster.Position == BattlePosition.FaceDownDefense ? "セット中" :

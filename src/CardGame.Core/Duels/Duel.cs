@@ -89,14 +89,35 @@ public sealed class Duel
         return ActionResult.Success;
     }
 
-    /// <summary>手札のモンスターを通常召喚(攻撃表示)またはセット(伏せ守備)する。</summary>
+    /// <summary>指定したマスに召喚できるかを判定する(盤面は変更しない)。</summary>
+    public ActionResult CanSummon(int handIndex, BattlePosition position, int slotIndex)
+    {
+        var check = CanSummon(handIndex, position);
+        if (!check.IsSuccess) return check;
+
+        if (slotIndex < 0 || slotIndex >= Player.MonsterZoneSize) return ActionResult.Fail(ActionError.InvalidSlot);
+        if (!CurrentPlayer.IsSlotEmpty(slotIndex)) return ActionResult.Fail(ActionError.SlotOccupied);
+
+        return ActionResult.Success;
+    }
+
+    /// <summary>手札のモンスターを、空いているマスのうち一番左に通常召喚またはセットする。</summary>
     public ActionResult Summon(int handIndex, BattlePosition position)
     {
         var check = CanSummon(handIndex, position);
         if (!check.IsSuccess) return check;
 
+        return Summon(handIndex, position, CurrentPlayer.FindEmptySlot());
+    }
+
+    /// <summary>手札のモンスターを、指定したマスに通常召喚(攻撃表示)またはセット(伏せ守備)する。</summary>
+    public ActionResult Summon(int handIndex, BattlePosition position, int slotIndex)
+    {
+        var check = CanSummon(handIndex, position, slotIndex);
+        if (!check.IsSuccess) return check;
+
         var card = CurrentPlayer.Hand[handIndex];
-        CurrentPlayer.SummonFromHand(handIndex, position);
+        CurrentPlayer.SummonFromHand(handIndex, position, slotIndex);
         NormalSummonUsed = true;
 
         var kind = position == BattlePosition.FaceDownDefense ? DuelLogKind.Set : DuelLogKind.Summoned;

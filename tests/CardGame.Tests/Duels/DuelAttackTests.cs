@@ -32,6 +32,26 @@ public class DuelAttackTests
     }
 
     [Fact]
+    public void Attack_KeepsOtherMonstersInTheirSlots_WhenTargetDestroyed()
+    {
+        var duel = DuelBuilder.Create()
+            .WithFieldMonster(Side.Second, TestCards.Monster(attack: 2000))
+            .WithFieldMonster(Side.First, TestCards.Monster(attack: 1000))
+            .WithFieldMonster(Side.First, TestCards.Monster(attack: 1000))
+            .WithFieldMonster(Side.First, TestCards.Monster(attack: 1000))
+            .Build();
+        duel.AdvanceTo(2, Phase.Battle);
+        var slots = duel.FirstPlayer.MonsterSlots;
+        var (left, middle, right) = (slots[0], slots[1], slots[2]);
+
+        duel.Attack(duel.SecondPlayer.MonsterZone[0], middle);
+
+        Assert.Same(left, duel.FirstPlayer.MonsterSlots[0]);
+        Assert.Null(duel.FirstPlayer.MonsterSlots[1]);
+        Assert.Same(right, duel.FirstPlayer.MonsterSlots[2]);
+    }
+
+    [Fact]
     public void Attack_DestroysAttackerAndDamagesAttackerOwner_WhenAttackLower()
     {
         var duel = DuelBuilder.Create()

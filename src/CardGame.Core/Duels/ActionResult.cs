@@ -12,6 +12,8 @@ public enum ActionError
     TributeRequired,
     NormalSummonAlreadyUsed,
     MonsterZoneFull,
+    InvalidSlot,
+    SlotOccupied,
     CannotAttackOnFirstTurn,
     AttackerNotOnYourField,
     AttackerNotInAttackPosition,

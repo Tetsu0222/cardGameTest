@@ -7,21 +7,24 @@
     <section class="board">
         <PlayerStatusView Player="Vm.Cpu" IsCurrent="Vm.Duel.CurrentPlayer == Vm.Cpu" ShowHandCount="true" />
 
-        <FieldView Monsters="Vm.Cpu.MonsterZone"
+        <FieldView Slots="Vm.Cpu.MonsterSlots"
                    IsOpponentField="true"
                    IsClickable="Vm.CanAttackTarget"
                    OnMonsterClick="(FieldMonster target) => Vm.AttackTarget(target)" />
 
         <div class="center-line"></div>
 
-        <FieldView Monsters="Vm.Human.MonsterZone"
+        <FieldView Slots="Vm.Human.MonsterSlots"
                    Selected="Vm.SelectedAttacker"
                    IsClickable="Vm.CanSelectAttacker"
-                   OnMonsterClick="Vm.SelectAttacker" />
+                   OnMonsterClick="Vm.SelectAttacker"
+                   IsEmptySlotClickable="Vm.CanSummonToSlot"
+                   OnEmptySlotClick="Vm.SummonToSlot" />
 
         <HandView Cards="Vm.Human.Hand"
                   CanSummon="Vm.CanSummon"
-                  OnSummon="(SummonRequest request) => Vm.Summon(request.HandIndex, request.Position)" />
+                  Pending="Vm.PendingSummon"
+                  OnSummon="Vm.BeginSummon" />
 
         <PlayerStatusView Player="Vm.Human" IsCurrent="Vm.Duel.CurrentPlayer == Vm.Human" />
     </section>
@@ -45,6 +48,10 @@
         else
         {
             <div class="controls">
+                @if (Vm.PendingSummon is not null)
+                {
+                    <button class="btn btn-outline-secondary" @onclick="Vm.CancelSummon">召喚をやめる</button>
+                }
                 @if (Vm.CanGoToBattle)
                 {
                     <button class="btn btn-danger" @onclick="Vm.GoToNextPhase">バトルフェーズへ</button>

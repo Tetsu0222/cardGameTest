@@ -3,10 +3,9 @@
     justify-content: center;
     gap: 8px;
     padding: 8px;
-    min-height: 156px;
-    align-items: center;
 }
 
+/* 攻撃表示(縦)・守備表示(横)のどちらでも収まる正方形のマス */
 .slot {
     width: 140px;
     height: 140px;
@@ -15,9 +14,27 @@
     justify-content: center;
 }
 
-.slot.empty {
+.empty {
+    width: 96px;
+    height: 136px;
     border: 1px dashed #9aa5b1;
     border-radius: 6px;
-    width: 96px;
-    margin: 0 22px;
+}
+
+/* 召喚先として選べる空きマス */
+.empty.clickable {
+    cursor: pointer;
+    border: 2px solid #ffd166;
+    background: rgba(255, 209, 102, 0.2);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.empty.clickable:hover {
+    background: rgba(255, 209, 102, 0.5);
+}
+
+@keyframes pulse {
+    50% {
+        box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.35);
+    }
 }

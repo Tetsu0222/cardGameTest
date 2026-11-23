@@ -16,6 +16,8 @@ public static class ActionErrorMessages
         ActionError.TributeRequired => "レベル5以上のモンスターは生け贄召喚が必要です(未対応)。",
         ActionError.NormalSummonAlreadyUsed => "通常召喚はこのターンすでに行っています。",
         ActionError.MonsterZoneFull => "モンスターゾーンに空きがありません。",
+        ActionError.InvalidSlot => "そのマスは選べません。",
+        ActionError.SlotOccupied => "そのマスにはすでにモンスターがいます。",
         ActionError.CannotAttackOnFirstTurn => "先攻の最初のターンは攻撃できません。",
         ActionError.AttackerNotOnYourField => "自分の場のモンスターを選んでください。",
         ActionError.AttackerNotInAttackPosition => "攻撃表示のモンスターでのみ攻撃できます。",

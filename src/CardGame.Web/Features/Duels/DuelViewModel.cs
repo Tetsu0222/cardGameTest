@@ -36,6 +36,9 @@ public sealed class DuelViewModel
     /// <summary>攻撃宣言のために選択中の自分のモンスター。</summary>
     public FieldMonster? SelectedAttacker { get; private set; }
 
+    /// <summary>召喚・セットを選んだ後、出すマスを選んでいる途中の操作。</summary>
+    public SummonRequest? PendingSummon { get; private set; }
+
     /// <summary>直前の操作が拒否された理由。</summary>
     public string? ErrorMessage { get; private set; }
 
@@ -48,6 +51,7 @@ public sealed class DuelViewModel
     public string Hint => (IsHumanTurn, Duel.CurrentPhase, SelectedAttacker) switch
     {
         (false, _, _) => "",
+        _ when PendingSummon is not null => "モンスターを出すマスを選んでください。",
         (true, Phase.Battle, null) => "攻撃するモンスターを選んでください。",
         (true, Phase.Battle, _) => "攻撃対象を選んでください。",
         (true, Phase.Main1 or Phase.Main2, _) when !Duel.NormalSummonUsed => "モンスターを召喚またはセットできます。",
@@ -57,7 +61,7 @@ public sealed class DuelViewModel
     public void StartNewDuel()
     {
         Duel = CreateDuel();
-        SelectedAttacker = null;
+        ClearSelection();
         ErrorMessage = null;
         AdvanceHumanToMain1();
     }
@@ -65,7 +69,29 @@ public sealed class DuelViewModel
     public bool CanSummon(int handIndex, BattlePosition position) =>
         IsHumanTurn && Duel.CanSummon(handIndex, position).IsSuccess;
 
-    public void Summon(int handIndex, BattlePosition position) => Apply(Duel.Summon(handIndex, position));
+    /// <summary>召喚・セットを選ぶ。続けて <see cref="SummonToSlot"/> でマスを選ぶ。同じ操作をもう一度選ぶと取り消す。</summary>
+    public void BeginSummon(SummonRequest request)
+    {
+        if (!CanSummon(request.HandIndex, request.Position)) return;
+        PendingSummon = PendingSummon == request ? null : request;
+        SelectedAttacker = null;
+        ErrorMessage = null;
+    }
+
+    public void CancelSummon() => PendingSummon = null;
+
+    public bool CanSummonToSlot(int slotIndex) =>
+        PendingSummon is not null
+        && IsHumanTurn
+        && Duel.CanSummon(PendingSummon.HandIndex, PendingSummon.Position, slotIndex).IsSuccess;
+
+    public void SummonToSlot(int slotIndex)
+    {
+        if (PendingSummon is null) return;
+        var request = PendingSummon;
+        PendingSummon = null;
+        Apply(Duel.Summon(request.HandIndex, request.Position, slotIndex));
+    }
 
     /// <summary>そのモンスターで攻撃できる対象が1つでもあれば選択可能。</summary>
     public bool CanSelectAttacker(FieldMonster monster) =>
@@ -77,6 +103,7 @@ public sealed class DuelViewModel
     {
         if (!CanSelectAttacker(monster)) return;
         SelectedAttacker = SelectedAttacker == monster ? null : monster;
+        PendingSummon = null;
         ErrorMessage = null;
     }
 
@@ -96,7 +123,7 @@ public sealed class DuelViewModel
     public void GoToNextPhase()
     {
         if (!IsHumanTurn) return;
-        SelectedAttacker = null;
+        ClearSelection();
         Apply(Duel.AdvancePhase());
     }
 
@@ -104,7 +131,7 @@ public sealed class DuelViewModel
     public void EndTurn()
     {
         if (!IsHumanTurn) return;
-        SelectedAttacker = null;
+        ClearSelection();
         ErrorMessage = null;
 
         while (IsHumanTurn)
@@ -134,6 +161,12 @@ public sealed class DuelViewModel
         {
             Duel.AdvancePhase();
         }
+    }
+
+    private void ClearSelection()
+    {
+        SelectedAttacker = null;
+        PendingSummon = null;
     }
 
     private void Apply(ActionResult result)

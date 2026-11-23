@@ -1,19 +1,21 @@
-@* 自分の手札。各カードに召喚・セットのボタンを付ける。 *@
+@* 自分の手札。各カードに召喚・セットのボタンを付ける。押した後、出すマスを場で選ぶ。 *@
 <div class="hand">
     @for (var i = 0; i < Cards.Count; i++)
     {
         var index = i;
+        var summon = new SummonRequest(index, BattlePosition.FaceUpAttack);
+        var set = new SummonRequest(index, BattlePosition.FaceDownDefense);
         <div class="hand-card" @key="index">
-            <CardView Card="Cards[index]" />
+            <CardView Card="Cards[index]" Selected="Pending?.HandIndex == index" />
             <div class="hand-actions">
-                <button class="btn btn-sm btn-primary"
-                        disabled="@(!CanSummon(index, BattlePosition.FaceUpAttack))"
-                        @onclick="() => OnSummon.InvokeAsync(new SummonRequest(index, BattlePosition.FaceUpAttack))">
+                <button class="btn btn-sm @(Pending == summon ? "btn-warning" : "btn-primary")"
+                        disabled="@(!CanSummon(index, summon.Position))"
+                        @onclick="() => OnSummon.InvokeAsync(summon)">
                     召喚
                 </button>
-                <button class="btn btn-sm btn-secondary"
-                        disabled="@(!CanSummon(index, BattlePosition.FaceDownDefense))"
-                        @onclick="() => OnSummon.InvokeAsync(new SummonRequest(index, BattlePosition.FaceDownDefense))">
+                <button class="btn btn-sm @(Pending == set ? "btn-warning" : "btn-secondary")"
+                        disabled="@(!CanSummon(index, set.Position))"
+                        @onclick="() => OnSummon.InvokeAsync(set)">
                     セット
                 </button>
             </div>
@@ -28,5 +30,9 @@
 @code {
     [Parameter, EditorRequired] public required IReadOnlyList<CardData> Cards { get; set; }
     [Parameter, EditorRequired] public required Func<int, BattlePosition, bool> CanSummon { get; set; }
+
+    /// <summary>マスの選択待ちになっている召喚・セット(強調表示する)。</summary>
+    [Parameter] public SummonRequest? Pending { get; set; }
+
     [Parameter] public EventCallback<SummonRequest> OnSummon { get; set; }
 }
