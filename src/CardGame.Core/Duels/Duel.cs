@@ -6,13 +6,11 @@ using CardGame.Core.Turns;
 namespace CardGame.Core.Duels;
 
 /// <summary>
-/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(魔法は Duel.Spells.cs)。
+/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(召喚は Duel.Summons.cs、魔法は Duel.Spells.cs)。
 /// 操作が拒否された場合は例外ではなく <see cref="ActionResult"/> で理由を返す。
 /// </summary>
 public sealed partial class Duel
 {
-    private const int MaxLevelWithoutTribute = 4;
-
     private readonly GameRulesOptions _rules;
     private readonly Player[] _players;
     private readonly DuelLog _log;
@@ -70,59 +68,6 @@ public sealed partial class Duel
             Phase.Main2 => Phase.End,
             _ => throw new InvalidOperationException($"Unexpected phase: {CurrentPhase}"),
         };
-        return ActionResult.Success;
-    }
-
-    /// <summary>召喚できるかを判定する(盤面は変更しない)。</summary>
-    public ActionResult CanSummon(int handIndex, BattlePosition position)
-    {
-        if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
-        if (CurrentPhase is not (Phase.Main1 or Phase.Main2)) return ActionResult.Fail(ActionError.WrongPhase);
-        if (position == BattlePosition.FaceUpDefense) return ActionResult.Fail(ActionError.InvalidPosition);
-        if (handIndex < 0 || handIndex >= CurrentPlayer.Hand.Count) return ActionResult.Fail(ActionError.InvalidHandIndex);
-
-        var card = CurrentPlayer.Hand[handIndex];
-        if (card.Kind is not (CardKind.NormalMonster or CardKind.EffectMonster)) return ActionResult.Fail(ActionError.NotAMonster);
-        if (card.Level > MaxLevelWithoutTribute) return ActionResult.Fail(ActionError.TributeRequired);
-        if (NormalSummonUsed) return ActionResult.Fail(ActionError.NormalSummonAlreadyUsed);
-        if (CurrentPlayer.MonsterZone.Count >= Player.MonsterZoneSize) return ActionResult.Fail(ActionError.MonsterZoneFull);
-
-        return ActionResult.Success;
-    }
-
-    /// <summary>指定したマスに召喚できるかを判定する(盤面は変更しない)。</summary>
-    public ActionResult CanSummon(int handIndex, BattlePosition position, int slotIndex)
-    {
-        var check = CanSummon(handIndex, position);
-        if (!check.IsSuccess) return check;
-
-        if (slotIndex < 0 || slotIndex >= Player.MonsterZoneSize) return ActionResult.Fail(ActionError.InvalidSlot);
-        if (!CurrentPlayer.IsSlotEmpty(slotIndex)) return ActionResult.Fail(ActionError.SlotOccupied);
-
-        return ActionResult.Success;
-    }
-
-    /// <summary>手札のモンスターを、空いているマスのうち一番左に通常召喚またはセットする。</summary>
-    public ActionResult Summon(int handIndex, BattlePosition position)
-    {
-        var check = CanSummon(handIndex, position);
-        if (!check.IsSuccess) return check;
-
-        return Summon(handIndex, position, CurrentPlayer.FindEmptySlot());
-    }
-
-    /// <summary>手札のモンスターを、指定したマスに通常召喚(攻撃表示)またはセット(伏せ守備)する。</summary>
-    public ActionResult Summon(int handIndex, BattlePosition position, int slotIndex)
-    {
-        var check = CanSummon(handIndex, position, slotIndex);
-        if (!check.IsSuccess) return check;
-
-        var card = CurrentPlayer.Hand[handIndex];
-        CurrentPlayer.SummonFromHand(handIndex, position, slotIndex);
-        NormalSummonUsed = true;
-
-        var kind = position == BattlePosition.FaceDownDefense ? DuelLogKind.Set : DuelLogKind.Summoned;
-        _log.Add(kind, CurrentPlayer, card.Name);
         return ActionResult.Success;
     }
 

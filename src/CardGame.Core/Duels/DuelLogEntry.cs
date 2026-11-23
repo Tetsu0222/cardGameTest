@@ -12,6 +12,7 @@ public enum DuelLogKind
     Destroyed,
     DeckOut,
     Won,
+    Tributed,
     SpellActivated,
     SpellTrapSet,
     Drew,

@@ -158,13 +158,13 @@ public class DuelSummonTests
     [Theory]
     [InlineData(5)]
     [InlineData(8)]
-    public void Summon_Fails_WhenLevelRequiresTribute(int level)
+    public void Summon_Fails_WhenNoMonsterToTribute(int level)
     {
         var duel = CreateDuelAtMain1(TestCards.Monster(level: level));
 
         var result = duel.Summon(0, BattlePosition.FaceUpAttack);
 
-        Assert.Equal(ActionError.TributeRequired, result.Error);
+        Assert.Equal(ActionError.NotEnoughTributes, result.Error);
     }
 
     [Fact]

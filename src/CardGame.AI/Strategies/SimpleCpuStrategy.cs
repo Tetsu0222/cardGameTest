@@ -2,6 +2,7 @@ using CardGame.Core.Cards;
 using CardGame.Core.Duels;
 using CardGame.Core.Effects;
 using CardGame.Core.Players;
+using CardGame.Core.Summons;
 using CardGame.Core.Turns;
 
 namespace CardGame.AI.Strategies;
@@ -10,7 +11,7 @@ namespace CardGame.AI.Strategies;
 /// 単純なルールベースの CPU。盤面を見て「次の1手」を決める。
 /// <list type="bullet">
 /// <item>メインフェーズ1では、まず損をしない魔法を手札から発動する(全体破壊は相手のモンスターの方が多いときだけ)。対象を取る魔法は、相手の見えているモンスターのうち最も攻撃力の高いものを狙う。</item>
-/// <item>次に、相手の攻撃表示モンスター以上の攻撃力があれば、最も攻撃力の高いモンスターを召喚する。なければ最も守備力の高いモンスターをセットする。</item>
+/// <item>次に、相手の攻撃表示モンスター以上の攻撃力があれば、最も攻撃力の高いモンスターを召喚する。なければ最も守備力の高いモンスターをセットする。上級モンスターは、攻撃力の低いモンスターから順にリリースし、リリースするどのモンスターよりも強くなる場合だけアドバンス召喚する(アドバンスセットはしない)。</item>
 /// <item>バトルフェーズでは、戦闘で一方的に破壊できる相手にだけ攻撃する(相打ちや返り討ちは避ける)。相手の場が空なら直接攻撃する。</item>
 /// </list>
 /// 裏側守備モンスターの守備力は見えないため、<see cref="AssumedFaceDownDefense"/> と仮定する。
@@ -115,6 +116,8 @@ public sealed class SimpleCpuStrategy
         var hand = duel.CurrentPlayer.Hand;
         var candidates = Enumerable.Range(0, hand.Count)
             .Where(i => duel.CanSummon(i, BattlePosition.FaceUpAttack).IsSuccess)
+            .Select(i => (HandIndex: i, Card: hand[i], Tributes: ChooseTributes(duel, hand[i])))
+            .Where(c => IsWorthTributing(c.Card, c.Tributes))
             .ToList();
         if (candidates.Count == 0) return null;
 
@@ -124,15 +127,32 @@ public sealed class SimpleCpuStrategy
             .DefaultIfEmpty(0)
             .Max();
 
-        var strongest = candidates.MaxBy(i => hand[i].Attack);
-        if (hand[strongest].Attack >= opponentBestAttack)
+        var strongest = candidates.MaxBy(c => c.Card.Attack);
+        if (strongest.Card.Attack >= opponentBestAttack)
         {
-            return new CpuSummonAction(strongest, BattlePosition.FaceUpAttack);
+            return new CpuSummonAction(strongest.HandIndex, BattlePosition.FaceUpAttack, NullIfEmpty(strongest.Tributes));
         }
 
-        var sturdiest = candidates.MaxBy(i => hand[i].Defense);
-        return new CpuSummonAction(sturdiest, BattlePosition.FaceDownDefense);
+        // 守りに回るときは、場のモンスターを減らすアドバンスセットはしない
+        var withoutTribute = candidates.Where(c => c.Tributes.Count == 0).ToList();
+        if (withoutTribute.Count == 0) return null;
+
+        var sturdiest = withoutTribute.MaxBy(c => c.Card.Defense);
+        return new CpuSummonAction(sturdiest.HandIndex, BattlePosition.FaceDownDefense);
     }
+
+    /// <summary>リリースに使うモンスター。攻撃力の低いものから必要な数だけ選ぶ。</summary>
+    private static IReadOnlyList<FieldMonster> ChooseTributes(Duel duel, CardData card) =>
+        [.. duel.CurrentPlayer.MonsterZone
+            .OrderBy(m => m.Card.Attack)
+            .Take(CountRequiredTributes.Execute(card))];
+
+    /// <summary>リリースするモンスターのどれよりも攻撃力が高くなる場合だけ、アドバンス召喚する価値がある。</summary>
+    private static bool IsWorthTributing(CardData card, IReadOnlyList<FieldMonster> tributes) =>
+        tributes.All(t => t.Card.Attack < card.Attack);
+
+    private static IReadOnlyList<FieldMonster>? NullIfEmpty(IReadOnlyList<FieldMonster> tributes) =>
+        tributes.Count == 0 ? null : tributes;
 
     // ---- 攻撃 ----
 

@@ -10,11 +10,11 @@ public static class CpuActionCommentary
     /// <returns>実況。フェーズ移動など、実況しない手は null。</returns>
     public static Commentary? Create(CpuAction action, Player cpu) => action switch
     {
-        CpuSummonAction { Position: BattlePosition.FaceDownDefense } =>
-            new Commentary($"{cpu.Name}はモンスターをセット"),
+        CpuSummonAction { Position: BattlePosition.FaceDownDefense } summon =>
+            new Commentary($"{cpu.Name}は{TributePrefix(summon.Tributes)}モンスターを{(HasTributes(summon.Tributes) ? "アドバンスセット" : "セット")}"),
 
         CpuSummonAction summon when HandCard(cpu, summon.HandIndex) is { } card =>
-            new Commentary($"{cpu.Name}は「{card.Name}」を召喚", card),
+            new Commentary($"{cpu.Name}は{TributePrefix(summon.Tributes)}「{card.Name}」を{(HasTributes(summon.Tributes) ? "アドバンス召喚" : "召喚")}", card),
 
         CpuActivateSpellAction spell when HandCard(cpu, spell.HandIndex) is { } card =>
             new Commentary($"{cpu.Name}は「{card.Name}」を発動{TargetSuffix(spell.Target)}", card),
@@ -30,6 +30,12 @@ public static class CpuActionCommentary
 
     private static CardData? HandCard(Player cpu, int handIndex) =>
         handIndex >= 0 && handIndex < cpu.Hand.Count ? cpu.Hand[handIndex] : null;
+
+    private static bool HasTributes(IReadOnlyList<FieldMonster>? tributes) => tributes is { Count: > 0 };
+
+    /// <summary>「「A」と「B」をリリースし、」のような前置き。リリースしない場合は空。</summary>
+    private static string TributePrefix(IReadOnlyList<FieldMonster>? tributes) =>
+        tributes is { Count: > 0 } list ? string.Join("と", list.Select(t => $"「{t.Card.Name}」")) + "をリリースし、" : "";
 
     private static string TargetSuffix(FieldMonster? target) =>
         target is null ? "" : $"({MonsterName(target)}を対象)";

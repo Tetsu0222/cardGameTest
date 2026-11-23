@@ -2,6 +2,7 @@ using CardGame.AI.Strategies;
 using CardGame.Core.Cards;
 using CardGame.Core.Duels;
 using CardGame.Core.Players;
+using CardGame.Core.Summons;
 using CardGame.Core.Turns;
 using Microsoft.Extensions.Options;
 
@@ -14,7 +15,7 @@ namespace CardGame.Web.Features.Duels;
 /// <remarks>
 /// 複数の手順が必要な操作は、途中の状態を持つ。
 /// <list type="bullet">
-/// <item>召喚・セット: 手札のボタン → <see cref="PendingPlacement"/> → 空きマスを選ぶ</item>
+/// <item>召喚・セット: 手札のボタン → <see cref="PendingPlacement"/> →(アドバンス召喚なら <see cref="PendingTributes"/> を選ぶ →)マスを選ぶ</item>
 /// <item>対象を取る魔法: 発動 → <see cref="PendingSpell"/> → 対象のモンスターを選ぶ</item>
 /// <item>攻撃: 自分のモンスター → <see cref="SelectedAttacker"/> → 相手のモンスター(またはダイレクトアタック)</item>
 /// </list>
@@ -33,6 +34,7 @@ public sealed class DuelViewModel
     private readonly Random _random;
     private readonly SimpleCpuStrategy _cpu;
     private readonly HashSet<FieldMonster> _highlightedMonsters = [];
+    private readonly List<FieldMonster> _pendingTributes = [];
     private readonly Dictionary<Player, int> _lifeChanges = [];
     private bool _skipCpuPlayback;
 
@@ -73,8 +75,16 @@ public sealed class DuelViewModel
     /// <summary>攻撃宣言のために選択中の自分のモンスター。</summary>
     public FieldMonster? SelectedAttacker { get; private set; }
 
-    /// <summary>召喚・セットを選んだ後、置くマスを選んでいる途中の操作。</summary>
+    /// <summary>召喚・セットを選んだ後、リリースするモンスターや置くマスを選んでいる途中の操作。</summary>
     public HandAction? PendingPlacement { get; private set; }
+
+    /// <summary>アドバンス召喚でリリースするモンスターとして選んだもの。</summary>
+    public IReadOnlyCollection<FieldMonster> PendingTributes => _pendingTributes;
+
+    /// <summary>アドバンス召喚で、リリースするモンスターをまだ選んでいる途中か。</summary>
+    public bool IsChoosingTributes =>
+        PendingPlacement is { Kind: HandActionKind.Summon or HandActionKind.SetMonster }
+        && _pendingTributes.Count < RequiredTributeCount;
 
     /// <summary>発動を選んだ後、対象を選んでいる途中の魔法。</summary>
     public PendingSpellActivation? PendingSpell { get; private set; }
@@ -86,6 +96,7 @@ public sealed class DuelViewModel
 
     /// <summary>直前の行動によるライフの増減(減少は負の値)。変化がなければ null。</summary>
     public int? LifeChangeOf(Player player) => _lifeChanges.TryGetValue(player, out var change) ? change : null;
+
     public bool HasPendingOperation => PendingPlacement is not null || PendingSpell is not null;
     public bool CanGoToBattle => IsHumanTurn && Duel.CurrentPhase == Phase.Main1 && Duel.TurnCount > 1;
     public bool CanGoToMain2 => IsHumanTurn && Duel.CurrentPhase == Phase.Battle;
@@ -102,6 +113,8 @@ public sealed class DuelViewModel
             if (!IsHumanTurn) return "";
             if (PendingSpell is not null) return $"「{PendingSpell.Card.Name}」の対象にするモンスターを選んでください。";
             if (PendingPlacement is { Kind: HandActionKind.SetSpellTrap }) return "セットするマスを選んでください。";
+            if (IsChoosingTributes) return $"リリースするモンスターを選んでください(あと{RequiredTributeCount - _pendingTributes.Count}体)。";
+            if (PendingPlacement is not null && _pendingTributes.Count > 0) return "モンスターを出すマスを選んでください(リリースするモンスターのマスも選べます)。";
             if (PendingPlacement is not null) return "モンスターを出すマスを選んでください。";
             if (Duel.CurrentPhase == Phase.Battle)
             {
@@ -160,14 +173,18 @@ public sealed class DuelViewModel
     // ---- マスの選択 ----
 
     public bool CanPlaceInMonsterSlot(int slotIndex) =>
-        IsHumanTurn && PendingPlacement is { Kind: HandActionKind.Summon or HandActionKind.SetMonster } placement
-        && Duel.CanSummon(placement.HandIndex, ToPosition(placement.Kind), slotIndex).IsSuccess;
+        IsHumanTurn && !IsChoosingTributes
+        && PendingPlacement is { Kind: HandActionKind.Summon or HandActionKind.SetMonster } placement
+        && Duel.CanSummon(placement.HandIndex, ToPosition(placement.Kind), slotIndex, [.. _pendingTributes]).IsSuccess;
 
     public void PlaceInMonsterSlot(int slotIndex)
     {
-        if (PendingPlacement is not { Kind: HandActionKind.Summon or HandActionKind.SetMonster } placement) return;
-        PendingPlacement = null;
-        Perform(() => Duel.Summon(placement.HandIndex, ToPosition(placement.Kind), slotIndex));
+        if (!CanPlaceInMonsterSlot(slotIndex)) return;
+        if (PendingPlacement is not { } placement) return;
+
+        IReadOnlyList<FieldMonster> tributes = [.. _pendingTributes];
+        ClearSelection();
+        Perform(() => Duel.Summon(placement.HandIndex, ToPosition(placement.Kind), slotIndex, tributes));
     }
 
     public bool CanPlaceInSpellTrapSlot(int slotIndex) =>
@@ -204,10 +221,22 @@ public sealed class DuelViewModel
 
     // ---- モンスターのクリック(対象選択・攻撃) ----
 
-    /// <summary>モンスターをクリックできるか。対象選択中なら対象にできるもの、それ以外は攻撃の選択に使えるもの。</summary>
+    /// <summary>
+    /// モンスターをクリックできるか。リリース選択中ならリリースできるもの、リリース後のマス選択中ならリリースするもの(そのマスに出す)、
+    /// 対象選択中なら対象にできるもの、それ以外は攻撃の選択に使えるもの。
+    /// </summary>
     public bool IsMonsterClickable(FieldMonster monster)
     {
-        if (!IsHumanTurn || PendingPlacement is not null) return false;
+        if (!IsHumanTurn) return false;
+
+        if (PendingPlacement is { Kind: HandActionKind.Summon or HandActionKind.SetMonster })
+        {
+            return IsChoosingTributes
+                ? Human.MonsterZone.Contains(monster) && !_pendingTributes.Contains(monster)
+                : _pendingTributes.Contains(monster) && CanPlaceInMonsterSlot(Human.FindMonsterSlot(monster));
+        }
+
+        if (PendingPlacement is not null) return false;
         if (PendingSpell is not null) return CheckSpellTarget(PendingSpell, monster).IsSuccess;
         if (Human.MonsterZone.Contains(monster)) return CanSelectAttacker(monster);
         return SelectedAttacker is not null && Duel.CanAttack(SelectedAttacker, monster).IsSuccess;
@@ -217,7 +246,16 @@ public sealed class DuelViewModel
     {
         if (!IsMonsterClickable(monster)) return;
 
-        if (PendingSpell is not null)
+        if (IsChoosingTributes)
+        {
+            _pendingTributes.Add(monster);
+        }
+        else if (PendingPlacement is not null)
+        {
+            // リリースするモンスターをクリックしたら、そのマスに出す
+            PlaceInMonsterSlot(Human.FindMonsterSlot(monster));
+        }
+        else if (PendingSpell is not null)
         {
             ActivatePendingSpell(PendingSpell, monster);
         }
@@ -334,6 +372,10 @@ public sealed class DuelViewModel
             case CpuActivateSpellAction { Target: { } target }:
                 _highlightedMonsters.Add(target);
                 break;
+
+            case CpuSummonAction { Tributes: { } tributes }:
+                _highlightedMonsters.UnionWith(tributes);
+                break;
         }
     }
 
@@ -358,6 +400,13 @@ public sealed class DuelViewModel
         HandActionKind.SetSpellTrap => Duel.CanSetSpellTrap(action.HandIndex),
         _ => throw new ArgumentOutOfRangeException(nameof(action), action.Kind, "Unknown hand action."),
     };
+
+    /// <summary>選択中の召喚に必要なリリースの数。召喚を選んでいなければ 0。</summary>
+    private int RequiredTributeCount =>
+        PendingPlacement is { Kind: HandActionKind.Summon or HandActionKind.SetMonster } placement
+        && placement.HandIndex < Human.Hand.Count
+            ? CountRequiredTributes.Execute(Human.Hand[placement.HandIndex])
+            : 0;
 
     private static BattlePosition ToPosition(HandActionKind kind) =>
         kind == HandActionKind.SetMonster ? BattlePosition.FaceDownDefense : BattlePosition.FaceUpAttack;
@@ -406,6 +455,7 @@ public sealed class DuelViewModel
     {
         SelectedAttacker = null;
         PendingPlacement = null;
+        _pendingTributes.Clear();
         PendingSpell = null;
     }
 

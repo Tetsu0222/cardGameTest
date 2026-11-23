@@ -17,7 +17,7 @@
                           Hidden="IsOpponentField && monster.Position == BattlePosition.FaceDownDefense"
                           Defense="monster.Position != BattlePosition.FaceUpAttack"
                           Label="LabelFor(monster)"
-                          Selected="monster == Selected"
+                          Selected="monster == Selected || IsTribute(monster)"
                           Highlighted="Highlighted?.Contains(monster) ?? false"
                           Clickable="IsClickable?.Invoke(monster) ?? false"
                           OnClick="() => OnMonsterClick.InvokeAsync(monster)" />
@@ -38,6 +38,9 @@
     /// <summary>実況中の行動に関わるモンスター(強調表示する)。</summary>
     [Parameter] public IReadOnlyCollection<FieldMonster>? Highlighted { get; set; }
 
+    /// <summary>アドバンス召喚でリリースするモンスターとして選んだもの(選択中として表示する)。</summary>
+    [Parameter] public IReadOnlyCollection<FieldMonster>? Tributes { get; set; }
+
     [Parameter] public Func<FieldMonster, bool>? IsClickable { get; set; }
     [Parameter] public EventCallback<FieldMonster> OnMonsterClick { get; set; }
 
@@ -54,7 +57,10 @@
         }
     }
 
+    private bool IsTribute(FieldMonster monster) => Tributes?.Contains(monster) ?? false;
+
     private string? LabelFor(FieldMonster monster) =>
+        IsTribute(monster) ? "リリース" :
         !IsOpponentField && monster.Position == BattlePosition.FaceDownDefense ? "セット中" :
         !IsOpponentField && monster.HasAttacked ? "攻撃済み" :
         null;

@@ -93,13 +93,14 @@ public sealed class Player
     /// <summary>モンスターゾーンの空いているマスのうち一番左の位置。空きがなければ -1。</summary>
     public int FindEmptySlot() => _monsterZone.FindEmptySlot();
 
+    /// <summary>モンスターがいるマスの位置。場にいなければ -1。</summary>
+    public int FindMonsterSlot(FieldMonster monster) => _monsterZone.IndexOf(monster);
+
     /// <summary>場のモンスターを墓地に送る。そのマスは空きになり、他のモンスターは動かない。場にいなければ false。</summary>
-    public bool DestroyMonster(FieldMonster monster)
-    {
-        if (!_monsterZone.Remove(monster)) return false;
-        _graveyard.Add(monster.Card);
-        return true;
-    }
+    public bool DestroyMonster(FieldMonster monster) => SendMonsterToGraveyard(monster);
+
+    /// <summary>アドバンス召喚のためにモンスターをリリースする(墓地へ送る)。場にいなければ false。</summary>
+    public bool TributeMonster(FieldMonster monster) => SendMonsterToGraveyard(monster);
 
     // ---- 魔法・罠ゾーン ----
 
@@ -137,4 +138,11 @@ public sealed class Player
     public void TakeDamage(int amount) => LifePoints = Math.Max(0, LifePoints - amount);
 
     public void GainLifePoints(int amount) => LifePoints += amount;
+
+    private bool SendMonsterToGraveyard(FieldMonster monster)
+    {
+        if (!_monsterZone.Remove(monster)) return false;
+        _graveyard.Add(monster.Card);
+        return true;
+    }
 }

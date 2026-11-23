@@ -29,6 +29,9 @@ public sealed class CardZone<T>
 
     public bool Contains(T item) => Array.IndexOf(_slots, item) >= 0;
 
+    /// <summary>置かれているマスの位置。置かれていなければ -1。</summary>
+    public int IndexOf(T item) => Array.IndexOf(_slots, item);
+
     /// <summary>指定したマスに置く。範囲外・使用中なら false。</summary>
     public bool Place(int slotIndex, T item)
     {

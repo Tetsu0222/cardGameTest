@@ -1,5 +1,6 @@
 using CardGame.Core.Cards;
 using CardGame.Core.Effects;
+using CardGame.Core.Summons;
 
 namespace CardGame.Tests.Cards;
 
@@ -7,7 +8,8 @@ public class SampleDeckTests
 {
     private const int DeckSize = 40;
     private const int MaxCopiesPerCard = 3;
-    private const int MaxLevelWithoutTribute = 4;
+    private const int MinLevel = 1;
+    private const int MaxLevelInDeck = 8;
 
     [Fact]
     public void Create_Returns40Cards()
@@ -24,11 +26,22 @@ public class SampleDeckTests
     }
 
     [Fact]
-    public void Create_ContainsOnlyMonstersSummonableWithoutTribute()
+    public void Create_ContainsMonstersWithValidLevels()
     {
         var monsters = SampleDeck.Create().Where(c => c.Kind is CardKind.NormalMonster or CardKind.EffectMonster);
 
-        Assert.All(monsters, card => Assert.InRange(card.Level, 1, MaxLevelWithoutTribute));
+        Assert.All(monsters, card => Assert.InRange(card.Level, MinLevel, MaxLevelInDeck));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Create_ContainsMonstersForEachTributeCount(int tributeCount)
+    {
+        var monsters = SampleDeck.Create().Where(c => c.Kind is CardKind.NormalMonster or CardKind.EffectMonster);
+
+        Assert.Contains(monsters, card => CountRequiredTributes.Execute(card) == tributeCount);
     }
 
     [Fact]
