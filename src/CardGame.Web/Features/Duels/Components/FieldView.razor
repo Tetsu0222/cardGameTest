@@ -1,0 +1,35 @@
+@* 1人分のモンスターゾーン(5枠)。 *@
+<div class="field">
+    @foreach (var monster in Monsters)
+    {
+        <div class="slot" @key="monster">
+            <CardView Card="monster.Card"
+                      Hidden="IsOpponentField && monster.Position == BattlePosition.FaceDownDefense"
+                      Defense="monster.Position != BattlePosition.FaceUpAttack"
+                      Label="LabelFor(monster)"
+                      Selected="monster == Selected"
+                      Clickable="IsClickable?.Invoke(monster) ?? false"
+                      OnClick="() => OnMonsterClick.InvokeAsync(monster)" />
+        </div>
+    }
+    @for (var i = Monsters.Count; i < Player.MonsterZoneSize; i++)
+    {
+        <div class="slot empty"></div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyList<FieldMonster> Monsters { get; set; }
+
+    /// <summary>相手の場か。相手の裏側モンスターは中身を隠す。</summary>
+    [Parameter] public bool IsOpponentField { get; set; }
+
+    [Parameter] public FieldMonster? Selected { get; set; }
+    [Parameter] public Func<FieldMonster, bool>? IsClickable { get; set; }
+    [Parameter] public EventCallback<FieldMonster> OnMonsterClick { get; set; }
+
+    private string? LabelFor(FieldMonster monster) =>
+        !IsOpponentField && monster.Position == BattlePosition.FaceDownDefense ? "セット中" :
+        !IsOpponentField && monster.HasAttacked ? "攻撃済み" :
+        null;
+}

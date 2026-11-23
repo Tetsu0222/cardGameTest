@@ -18,7 +18,12 @@ services:
       - nuget:/root/.nuget/packages
     ports:
       - "5000:5000"
-    command: dotnet watch run --project src/CardGame.Web --urls http://0.0.0.0:5000 --no-launch-profile
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+      ASPNETCORE_ENVIRONMENT: Development
+      # Windows からのボリュームマウントではファイル変更通知が届かないため、ポーリングで検知する
+      DOTNET_USE_POLLING_FILE_WATCHER: "true"
+    command: dotnet watch run --project src/CardGame.Web --no-launch-profile --non-interactive
 
 volumes:
   nuget:

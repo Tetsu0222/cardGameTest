@@ -1,0 +1,77 @@
+@page "/"
+@inject DuelViewModel Vm
+
+<PageTitle>カードゲーム</PageTitle>
+
+<div class="duel">
+    <section class="board">
+        <PlayerStatusView Player="Vm.Cpu" IsCurrent="Vm.Duel.CurrentPlayer == Vm.Cpu" ShowHandCount="true" />
+
+        <FieldView Monsters="Vm.Cpu.MonsterZone"
+                   IsOpponentField="true"
+                   IsClickable="Vm.CanAttackTarget"
+                   OnMonsterClick="(FieldMonster target) => Vm.AttackTarget(target)" />
+
+        <div class="center-line"></div>
+
+        <FieldView Monsters="Vm.Human.MonsterZone"
+                   Selected="Vm.SelectedAttacker"
+                   IsClickable="Vm.CanSelectAttacker"
+                   OnMonsterClick="Vm.SelectAttacker" />
+
+        <HandView Cards="Vm.Human.Hand"
+                  CanSummon="Vm.CanSummon"
+                  OnSummon="(SummonRequest request) => Vm.Summon(request.HandIndex, request.Position)" />
+
+        <PlayerStatusView Player="Vm.Human" IsCurrent="Vm.Duel.CurrentPlayer == Vm.Human" />
+    </section>
+
+    <aside class="side">
+        <div class="turn">ターン @Vm.Duel.TurnCount</div>
+        <ol class="phases">
+            @foreach (var phase in PhaseNames.All)
+            {
+                <li class="@(phase == Vm.Duel.CurrentPhase ? "active" : null)" @key="phase">
+                    @PhaseNames.ToDisplayName(phase)
+                </li>
+            }
+        </ol>
+
+        @if (Vm.Duel.IsFinished)
+        {
+            <div class="result">@(Vm.Duel.Winner == Vm.Human ? "あなたの勝利!" : "あなたの敗北…")</div>
+            <button class="btn btn-primary w-100" @onclick="Vm.StartNewDuel">新しい対戦を始める</button>
+        }
+        else
+        {
+            <div class="controls">
+                @if (Vm.CanGoToBattle)
+                {
+                    <button class="btn btn-danger" @onclick="Vm.GoToNextPhase">バトルフェーズへ</button>
+                }
+                @if (Vm.CanGoToMain2)
+                {
+                    <button class="btn btn-outline-secondary" @onclick="Vm.GoToNextPhase">メインフェーズ2へ</button>
+                }
+                @if (Vm.CanDirectAttack)
+                {
+                    <button class="btn btn-warning" @onclick="() => Vm.AttackTarget(null)">ダイレクトアタック</button>
+                }
+                <button class="btn btn-dark" disabled="@(!Vm.IsHumanTurn)" @onclick="Vm.EndTurn">ターン終了</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(Vm.Hint))
+            {
+                <div class="hint">@Vm.Hint</div>
+            }
+        }
+
+        @if (Vm.ErrorMessage is not null)
+        {
+            <div class="alert alert-warning py-1 my-2">@Vm.ErrorMessage</div>
+        }
+
+        <h6 class="mt-3">ログ</h6>
+        <DuelLogView Entries="Vm.Duel.Log" />
+    </aside>
+</div>

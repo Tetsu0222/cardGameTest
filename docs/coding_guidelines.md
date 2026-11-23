@@ -70,8 +70,8 @@ Razor コンポーネントの責務は「状態の表示 → ユーザー操作
     ├── _Imports.razor
     ├── Layout           (MainLayout, NavMenu)
     ├── Features (補足2)
-    │   ├── Duel
-    │   │   ├── Pages        (Duel.razor)
+    │   ├── Duels
+    │   │   ├── Pages        (DuelPage.razor)
     │   │   ├── Components   (HandView.razor, FieldView.razor)
     │   │   └── DuelViewModel.cs
     │   ├── DeckEditor
@@ -114,7 +114,8 @@ Razor コンポーネントの責務は「状態の表示 → ユーザー操作
 
 - 1コンポーネント = 1 `.razor`。ロジックが増えたら code-behind（`Xxx.razor.cs`）に `partial class` として分離する。
 - コンポーネント固有のスタイルは CSS isolation（`Xxx.razor.css`）を使う。
-- ファイル名は PascalCase。ページは名詞（`Duel.razor`）、部品は役割が分かる名前（`HandView.razor`）。
+- ファイル名は PascalCase。ページは `{名詞}Page.razor`（`DuelPage.razor`）、部品は役割が分かる名前（`HandView.razor`）。
+- Web の機能フォルダ名・ページ名は Core の型名と同じにしない（例：`Features/Duel` だと名前空間 `...Features.Duel` が Core の `Duel` 型と衝突する）。機能フォルダは複数形（`Duels`）にする。
 - `@page` のルートは小文字ケバブケース（`/deck-editor`）にする。
 
 ### 2-4. ユースケースの粒度基準
@@ -280,6 +281,8 @@ builder.Services.Configure<GameRulesOptions>(
 - 1テスト = 1つの振る舞いを検証する。Arrange / Act / Assert を意識して書く。
 - 乱数は固定シードまたはテスト用の `IRandom` で決定的にする。
 - テスト内でマジック値を使い回さず、ヘルパー（`CreatePlayer(deckSize)` のようなファクトリ）にまとめる。
+- 複数のテストクラスで使うヘルパー（盤面を組み立てる `DuelBuilder`、テスト用カードの `TestCards` など）は `tests/CardGame.Tests/TestSupport/` に置く。
+- ルールの検証は、`DuelBuilder` で盤面を作り `Duel` の公開操作を通して確かめるシナリオテストを中心にする。純粋な計算（戦闘結果など）は単体テストで網羅する。
 
 ### 7-2. 異常系・境界値テストを書く
 

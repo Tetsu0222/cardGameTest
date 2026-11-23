@@ -1,0 +1,32 @@
+@* 自分の手札。各カードに召喚・セットのボタンを付ける。 *@
+<div class="hand">
+    @for (var i = 0; i < Cards.Count; i++)
+    {
+        var index = i;
+        <div class="hand-card" @key="index">
+            <CardView Card="Cards[index]" />
+            <div class="hand-actions">
+                <button class="btn btn-sm btn-primary"
+                        disabled="@(!CanSummon(index, BattlePosition.FaceUpAttack))"
+                        @onclick="() => OnSummon.InvokeAsync(new SummonRequest(index, BattlePosition.FaceUpAttack))">
+                    召喚
+                </button>
+                <button class="btn btn-sm btn-secondary"
+                        disabled="@(!CanSummon(index, BattlePosition.FaceDownDefense))"
+                        @onclick="() => OnSummon.InvokeAsync(new SummonRequest(index, BattlePosition.FaceDownDefense))">
+                    セット
+                </button>
+            </div>
+        </div>
+    }
+    @if (Cards.Count == 0)
+    {
+        <div class="hand-empty">手札がありません</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyList<CardData> Cards { get; set; }
+    [Parameter, EditorRequired] public required Func<int, BattlePosition, bool> CanSummon { get; set; }
+    [Parameter] public EventCallback<SummonRequest> OnSummon { get; set; }
+}

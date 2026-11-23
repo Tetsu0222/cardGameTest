@@ -1,0 +1,23 @@
+.status {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #edf2f7;
+}
+
+.status.current {
+    background: #fff3bf;
+}
+
+.name {
+    font-weight: bold;
+}
+
+.life {
+    font-size: 1.3rem;
+    font-weight: bold;
+    font-family: monospace;
+    color: #c1121f;
+}

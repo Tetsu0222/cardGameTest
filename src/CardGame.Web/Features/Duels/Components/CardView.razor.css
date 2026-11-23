@@ -1,0 +1,67 @@
+.card-view {
+    width: 96px;
+    height: 136px;
+    border: 2px solid #6b4f1d;
+    border-radius: 6px;
+    background: #e9c46a;
+    color: #2b2005;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.72rem;
+    box-sizing: border-box;
+    user-select: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.card-view.defense {
+    width: 136px;
+    height: 96px;
+}
+
+.card-view.clickable {
+    cursor: pointer;
+    box-shadow: 0 0 0 2px #3a86ff;
+}
+
+.card-view.clickable:hover {
+    transform: translateY(-3px);
+}
+
+.card-view.selected {
+    box-shadow: 0 0 0 3px #ff006e;
+    transform: translateY(-3px);
+}
+
+.card-name {
+    font-weight: bold;
+    line-height: 1.2;
+    min-height: 2.4em;
+}
+
+.card-level {
+    color: #c1121f;
+    letter-spacing: -1px;
+}
+
+.card-stats {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    font-family: monospace;
+}
+
+.card-label {
+    text-align: center;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: 3px;
+}
+
+.card-back {
+    flex: 1;
+    border-radius: 4px;
+    background: repeating-linear-gradient(45deg, #5a3a1a, #5a3a1a 6px, #7a5230 6px, #7a5230 12px);
+}

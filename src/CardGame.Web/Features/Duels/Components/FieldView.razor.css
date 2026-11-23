@@ -1,0 +1,23 @@
+.field {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    min-height: 156px;
+    align-items: center;
+}
+
+.slot {
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slot.empty {
+    border: 1px dashed #9aa5b1;
+    border-radius: 6px;
+    width: 96px;
+    margin: 0 22px;
+}

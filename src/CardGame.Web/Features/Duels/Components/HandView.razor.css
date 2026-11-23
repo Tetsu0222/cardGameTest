@@ -1,0 +1,25 @@
+.hand {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    min-height: 180px;
+}
+
+.hand-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.hand-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.hand-empty {
+    align-self: center;
+    color: #6c757d;
+}

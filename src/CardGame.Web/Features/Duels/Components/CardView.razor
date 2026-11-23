@@ -1,0 +1,55 @@
+@* 1枚のカード。手札・場の両方で使う。 *@
+<div class="card-view @CssClass" @onclick="HandleClick" title="@Tooltip">
+    @if (Hidden)
+    {
+        <div class="card-back"></div>
+    }
+    else
+    {
+        <div class="card-name">@Card.Name</div>
+        <div class="card-level">@(new string('★', Card.Level))</div>
+        <div class="card-stats">
+            <span>ATK @Card.Attack</span>
+            <span>DEF @Card.Defense</span>
+        </div>
+        @if (Label is not null)
+        {
+            <div class="card-label">@Label</div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required CardData Card { get; set; }
+
+    /// <summary>裏向きで表示する(相手のセットモンスターなど)。</summary>
+    [Parameter] public bool Hidden { get; set; }
+
+    /// <summary>守備表示(横向き)で表示する。</summary>
+    [Parameter] public bool Defense { get; set; }
+
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public bool Clickable { get; set; }
+
+    /// <summary>カード下部に出す補足(自分のセットモンスターの「セット中」など)。</summary>
+    [Parameter] public string? Label { get; set; }
+
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string CssClass => string.Join(' ', new[]
+    {
+        Defense ? "defense" : null,
+        Selected ? "selected" : null,
+        Clickable ? "clickable" : null,
+    }.Where(c => c is not null));
+
+    private string? Tooltip => Hidden ? null : $"{Card.Name} Lv{Card.Level} ATK {Card.Attack} / DEF {Card.Defense}";
+
+    private async Task HandleClick()
+    {
+        if (Clickable)
+        {
+            await OnClick.InvokeAsync();
+        }
+    }
+}

@@ -1,0 +1,21 @@
+@* プレイヤーのライフと各領域の枚数。 *@
+<div class="status @(IsCurrent ? "current" : null)">
+    <span class="name">@Player.Name</span>
+    <span class="life">LP @Player.LifePoints</span>
+    @if (ShowHandCount)
+    {
+        <span>手札 @Player.Hand.Count</span>
+    }
+    <span>デッキ @Player.Deck.Count</span>
+    <span>墓地 @Player.Graveyard.Count</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required Player Player { get; set; }
+
+    /// <summary>ターンプレイヤーか(強調表示する)。</summary>
+    [Parameter] public bool IsCurrent { get; set; }
+
+    /// <summary>手札の枚数を表示する(相手用。自分の手札はカードとして見えている)。</summary>
+    [Parameter] public bool ShowHandCount { get; set; }
+}

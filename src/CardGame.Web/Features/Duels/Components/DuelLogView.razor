@@ -1,0 +1,13 @@
+@* 対戦ログ(新しいものが上)。 *@
+<div class="log">
+    @foreach (var (entry, index) in Entries.Select((e, i) => (e, i)).Reverse())
+    {
+        <div class="log-entry @(entry.Kind == DuelLogKind.TurnStarted ? "turn" : null)" @key="index">
+            @DuelLogFormatter.Format(entry)
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyList<DuelLogEntry> Entries { get; set; }
+}
