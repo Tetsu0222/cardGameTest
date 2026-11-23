@@ -1,8 +1,10 @@
+using CardGame.Core.Effects;
+
 namespace CardGame.Core.Cards;
 
 /// <summary>
-/// 動作確認用の仮デッキ(40枚)。現在のルールで使える、生け贄不要の通常モンスターのみで構成する。
-/// カード名はすべてオリジナル。
+/// 動作確認用の仮デッキ(40枚)。現在のルールで使える、生け贄不要の通常モンスター30枚と通常魔法10枚。
+/// カード名はすべてオリジナル。魔法の効果は効果部品の組み合わせで定義している。
 /// </summary>
 public static class SampleDeck
 {
@@ -18,10 +20,13 @@ public static class SampleDeck
         (Monster(8, "クリスタル・ゴーレム", 4, 1400, 1800), 3),
         (Monster(9, "サンダー・バード", 4, 1700, 800), 3),
         (Monster(10, "アクア・サーペント", 3, 1100, 1300), 3),
-        (Monster(11, "ナイト・バット", 2, 700, 500), 3),
-        (Monster(12, "ロック・タートル", 3, 500, 1900), 3),
-        (Monster(13, "フレイム・ソルジャー", 4, 1650, 1100), 2),
-        (Monster(14, "ミスト・ウィザード", 3, 1000, 1600), 2),
+
+        (Spell(101, "叡智の書", new CardEffect([new DrawCardsAction(2)])), 1),
+        (Spell(102, "火炎弾", new CardEffect([new DealDamageAction(600)])), 2),
+        (Spell(103, "癒しの泉", new CardEffect([new GainLifePointsAction(1000)])), 2),
+        (Spell(104, "ブレイク・ショット", new CardEffect([new DestroyTargetMonsterAction()], MonsterSide.Opponent)), 2),
+        (Spell(105, "虚無の渦", new CardEffect([new DestroyAllMonstersAction(MonsterSide.Both)])), 1),
+        (Spell(106, "炎の書", new CardEffect([new DealDamageAction(300), new DrawCardsAction(1)])), 2),
     ];
 
     /// <summary>シャッフル前のデッキ(同名カードが連続して並ぶ)。</summary>
@@ -30,4 +35,7 @@ public static class SampleDeck
 
     private static CardData Monster(int id, string name, int level, int attack, int defense) =>
         new(id, name, CardKind.NormalMonster, level, attack, defense);
+
+    private static CardData Spell(int id, string name, CardEffect effect) =>
+        new(id, name, CardKind.Spell, Effect: effect);
 }

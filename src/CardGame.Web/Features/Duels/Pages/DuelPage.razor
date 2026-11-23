@@ -7,24 +7,33 @@
     <section class="board">
         <PlayerStatusView Player="Vm.Cpu" IsCurrent="Vm.Duel.CurrentPlayer == Vm.Cpu" ShowHandCount="true" />
 
+        <SpellTrapZoneView Slots="Vm.Cpu.SpellTrapSlots" IsOpponentField="true" />
+
         <FieldView Slots="Vm.Cpu.MonsterSlots"
                    IsOpponentField="true"
-                   IsClickable="Vm.CanAttackTarget"
-                   OnMonsterClick="(FieldMonster target) => Vm.AttackTarget(target)" />
+                   IsClickable="Vm.IsMonsterClickable"
+                   OnMonsterClick="Vm.ClickMonster" />
 
         <div class="center-line"></div>
 
         <FieldView Slots="Vm.Human.MonsterSlots"
                    Selected="Vm.SelectedAttacker"
-                   IsClickable="Vm.CanSelectAttacker"
-                   OnMonsterClick="Vm.SelectAttacker"
-                   IsEmptySlotClickable="Vm.CanSummonToSlot"
-                   OnEmptySlotClick="Vm.SummonToSlot" />
+                   IsClickable="Vm.IsMonsterClickable"
+                   OnMonsterClick="Vm.ClickMonster"
+                   IsEmptySlotClickable="Vm.CanPlaceInMonsterSlot"
+                   OnEmptySlotClick="Vm.PlaceInMonsterSlot" />
+
+        <SpellTrapZoneView Slots="Vm.Human.SpellTrapSlots"
+                           IsCardClickable="Vm.CanActivateSetCard"
+                           OnCardClick="Vm.ActivateSetCard"
+                           IsEmptySlotClickable="Vm.CanPlaceInSpellTrapSlot"
+                           OnEmptySlotClick="Vm.PlaceInSpellTrapSlot" />
 
         <HandView Cards="Vm.Human.Hand"
-                  CanSummon="Vm.CanSummon"
-                  Pending="Vm.PendingSummon"
-                  OnSummon="Vm.BeginSummon" />
+                  CanDo="Vm.CanDoHandAction"
+                  Pending="Vm.PendingPlacement"
+                  SelectedIndex="Vm.SelectedHandIndex"
+                  OnAction="Vm.BeginHandAction" />
 
         <PlayerStatusView Player="Vm.Human" IsCurrent="Vm.Duel.CurrentPlayer == Vm.Human" />
     </section>
@@ -48,9 +57,9 @@
         else
         {
             <div class="controls">
-                @if (Vm.PendingSummon is not null)
+                @if (Vm.HasPendingOperation || Vm.SelectedAttacker is not null)
                 {
-                    <button class="btn btn-outline-secondary" @onclick="Vm.CancelSummon">召喚をやめる</button>
+                    <button class="btn btn-outline-secondary" @onclick="Vm.CancelSelection">選択をやめる</button>
                 }
                 @if (Vm.CanGoToBattle)
                 {
@@ -62,7 +71,7 @@
                 }
                 @if (Vm.CanDirectAttack)
                 {
-                    <button class="btn btn-warning" @onclick="() => Vm.AttackTarget(null)">ダイレクトアタック</button>
+                    <button class="btn btn-warning" @onclick="Vm.DirectAttack">ダイレクトアタック</button>
                 }
                 <button class="btn btn-dark" disabled="@(!Vm.IsHumanTurn)" @onclick="Vm.EndTurn">ターン終了</button>
             </div>

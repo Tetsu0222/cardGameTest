@@ -53,6 +53,29 @@
     font-family: monospace;
 }
 
+.card-view.spell {
+    background: #2a9d8f;
+    border-color: #1b5e56;
+    color: #fff;
+}
+
+.card-view.trap {
+    background: #b5179e;
+    border-color: #6a0f5c;
+    color: #fff;
+}
+
+.card-kind {
+    font-size: 0.65rem;
+}
+
+.card-text {
+    font-size: 0.6rem;
+    line-height: 1.25;
+    overflow: hidden;
+    flex: 1;
+}
+
 .card-label {
     text-align: center;
     background: rgba(0, 0, 0, 0.55);

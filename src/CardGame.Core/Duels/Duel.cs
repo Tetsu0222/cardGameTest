@@ -6,22 +6,23 @@ using CardGame.Core.Turns;
 namespace CardGame.Core.Duels;
 
 /// <summary>
-/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する。
+/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(魔法は Duel.Spells.cs)。
 /// 操作が拒否された場合は例外ではなく <see cref="ActionResult"/> で理由を返す。
 /// </summary>
-public sealed class Duel
+public sealed partial class Duel
 {
     private const int MaxLevelWithoutTribute = 4;
 
     private readonly GameRulesOptions _rules;
     private readonly Player[] _players;
-    private readonly List<DuelLogEntry> _log = [];
+    private readonly DuelLog _log;
     private int _currentIndex;
 
     /// <param name="firstPlayer">先攻プレイヤー。デッキはシャッフル済みで渡す。</param>
     public Duel(Player firstPlayer, Player secondPlayer, GameRulesOptions rules)
     {
         _rules = rules;
+        _log = new DuelLog(() => TurnCount);
         _players = [firstPlayer, secondPlayer];
         TurnCount = 1;
 
@@ -48,7 +49,7 @@ public sealed class Duel
     public bool IsFinished => Winner is not null;
 
     /// <summary>対戦中の出来事(古い順)。</summary>
-    public IReadOnlyList<DuelLogEntry> Log => _log;
+    public IReadOnlyList<DuelLogEntry> Log => _log.Entries;
 
     public ActionResult AdvancePhase()
     {
@@ -121,7 +122,7 @@ public sealed class Duel
         NormalSummonUsed = true;
 
         var kind = position == BattlePosition.FaceDownDefense ? DuelLogKind.Set : DuelLogKind.Summoned;
-        AddLog(kind, CurrentPlayer, card.Name);
+        _log.Add(kind, CurrentPlayer, card.Name);
         return ActionResult.Success;
     }
 
@@ -160,24 +161,24 @@ public sealed class Duel
 
         if (target is null)
         {
-            AddLog(DuelLogKind.DirectAttacked, attackerOwner, attacker.Card.Name);
+            _log.Add(DuelLogKind.DirectAttacked, attackerOwner, attacker.Card.Name);
         }
         else
         {
             var isFaceDown = target.Position == BattlePosition.FaceDownDefense;
-            AddLog(DuelLogKind.Attacked, attackerOwner, attacker.Card.Name, isFaceDown ? null : target.Card.Name);
+            _log.Add(DuelLogKind.Attacked, attackerOwner, attacker.Card.Name, isFaceDown ? null : target.Card.Name, isTargetHidden: isFaceDown);
             if (isFaceDown)
             {
-                AddLog(DuelLogKind.Flipped, targetOwner, target.Card.Name);
+                _log.Add(DuelLogKind.Flipped, targetOwner, target.Card.Name);
             }
         }
 
         var outcome = ResolveBattle.Execute(attackerOwner, targetOwner, attacker, target);
 
-        if (outcome.AttackerDestroyed) AddLog(DuelLogKind.Destroyed, attackerOwner, attacker.Card.Name);
-        if (outcome.TargetDestroyed && target is not null) AddLog(DuelLogKind.Destroyed, targetOwner, target.Card.Name);
-        if (outcome.DamageToAttackerOwner > 0) AddLog(DuelLogKind.Damaged, attackerOwner, amount: outcome.DamageToAttackerOwner);
-        if (outcome.DamageToTargetOwner > 0) AddLog(DuelLogKind.Damaged, targetOwner, amount: outcome.DamageToTargetOwner);
+        if (outcome.AttackerDestroyed) _log.Add(DuelLogKind.Destroyed, attackerOwner, attacker.Card.Name);
+        if (outcome.TargetDestroyed && target is not null) _log.Add(DuelLogKind.Destroyed, targetOwner, target.Card.Name);
+        if (outcome.DamageToAttackerOwner > 0) _log.Add(DuelLogKind.Damaged, attackerOwner, amount: outcome.DamageToAttackerOwner);
+        if (outcome.DamageToTargetOwner > 0) _log.Add(DuelLogKind.Damaged, targetOwner, amount: outcome.DamageToTargetOwner);
 
         UpdateWinner();
         return ActionResult.Success;
@@ -194,12 +195,12 @@ public sealed class Duel
     private void BeginTurn()
     {
         CurrentPhase = Phase.Draw;
-        AddLog(DuelLogKind.TurnStarted, CurrentPlayer);
+        _log.Add(DuelLogKind.TurnStarted, CurrentPlayer);
 
         var skipDraw = TurnCount == 1 && _rules.FirstPlayerSkipsFirstDraw;
         if (!skipDraw && !CurrentPlayer.Draw())
         {
-            AddLog(DuelLogKind.DeckOut, CurrentPlayer);
+            _log.Add(DuelLogKind.DeckOut, CurrentPlayer);
             SetWinner(OpponentPlayer);
         }
     }
@@ -230,16 +231,6 @@ public sealed class Duel
     private void SetWinner(Player winner)
     {
         Winner = winner;
-        AddLog(DuelLogKind.Won, winner);
-    }
-
-    private void AddLog(
-        DuelLogKind kind,
-        Player player,
-        string? cardName = null,
-        string? targetCardName = null,
-        int amount = 0)
-    {
-        _log.Add(new DuelLogEntry(TurnCount, kind, player.Name, cardName, targetCardName, amount));
+        _log.Add(DuelLogKind.Won, winner);
     }
 }

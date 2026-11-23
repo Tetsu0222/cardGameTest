@@ -1,0 +1,40 @@
+.zone {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 4px 8px;
+}
+
+/* モンスターゾーンとマスの位置をそろえるため、同じ幅にする */
+.slot {
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty {
+    width: 96px;
+    height: 136px;
+    border: 1px dashed #7fb8b0;
+    border-radius: 6px;
+}
+
+/* セット先として選べる空きマス */
+.empty.clickable {
+    cursor: pointer;
+    border: 2px solid #ffd166;
+    background: rgba(255, 209, 102, 0.2);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.empty.clickable:hover {
+    background: rgba(255, 209, 102, 0.5);
+}
+
+@keyframes pulse {
+    50% {
+        box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.35);
+    }
+}

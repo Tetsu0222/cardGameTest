@@ -1,4 +1,5 @@
 using CardGame.Core.Cards;
+using CardGame.Core.Effects;
 
 namespace CardGame.Tests.Cards;
 
@@ -25,11 +26,28 @@ public class SampleDeckTests
     [Fact]
     public void Create_ContainsOnlyMonstersSummonableWithoutTribute()
     {
-        Assert.All(SampleDeck.Create(), card =>
+        var monsters = SampleDeck.Create().Where(c => c.Kind is CardKind.NormalMonster or CardKind.EffectMonster);
+
+        Assert.All(monsters, card => Assert.InRange(card.Level, 1, MaxLevelWithoutTribute));
+    }
+
+    [Fact]
+    public void Create_ContainsOnlySpellsWithValidEffects()
+    {
+        var spells = SampleDeck.Create().Where(c => c.Kind == CardKind.Spell).ToList();
+
+        Assert.NotEmpty(spells);
+        Assert.All(spells, card =>
         {
-            Assert.Equal(CardKind.NormalMonster, card.Kind);
-            Assert.InRange(card.Level, 1, MaxLevelWithoutTribute);
+            Assert.NotNull(card.Effect);
+            Assert.True(ValidateCardEffect.Execute(card.Effect));
         });
+    }
+
+    [Fact]
+    public void Create_ContainsNoTraps_UntilTrapsAreImplemented()
+    {
+        Assert.DoesNotContain(SampleDeck.Create(), c => c.Kind == CardKind.Trap);
     }
 
     [Fact]

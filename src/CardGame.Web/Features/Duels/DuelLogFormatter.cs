@@ -18,6 +18,13 @@ public static class DuelLogFormatter
         DuelLogKind.Destroyed => $"{entry.PlayerName}の「{entry.CardName}」が破壊された",
         DuelLogKind.DeckOut => $"{entry.PlayerName}はデッキ切れでドローできない",
         DuelLogKind.Won => $"{entry.PlayerName}の勝利",
+        DuelLogKind.SpellActivated when entry.TargetCardName is not null || entry.IsTargetHidden =>
+            $"{entry.PlayerName}は「{entry.CardName}」を発動({TargetText(entry)}を対象)",
+        DuelLogKind.SpellActivated => $"{entry.PlayerName}は「{entry.CardName}」を発動",
+        // セットしたカード名は相手に見えないため表示しない
+        DuelLogKind.SpellTrapSet => $"{entry.PlayerName}は魔法・罠カードをセット",
+        DuelLogKind.Drew => $"{entry.PlayerName}はカードを{entry.Amount}枚ドロー",
+        DuelLogKind.LifeGained => $"{entry.PlayerName}は {entry.Amount} ライフポイント回復",
         _ => entry.Kind.ToString(),
     };
 

@@ -10,10 +10,12 @@ namespace CardGame.Core.Players;
 public sealed class Player
 {
     public const int MonsterZoneSize = 5;
+    public const int SpellTrapZoneSize = 5;
 
     private readonly List<CardData> _deck;
     private readonly List<CardData> _hand = [];
-    private readonly FieldMonster?[] _monsterSlots = new FieldMonster?[MonsterZoneSize];
+    private readonly CardZone<FieldMonster> _monsterZone = new(MonsterZoneSize);
+    private readonly CardZone<SpellTrapCard> _spellTrapZone = new(SpellTrapZoneSize);
     private readonly List<CardData> _graveyard = [];
 
     public Player(string name, IEnumerable<CardData> deck, GameRulesOptions rules)
@@ -27,16 +29,19 @@ public sealed class Player
     public int LifePoints { get; private set; }
     public IReadOnlyList<CardData> Deck => _deck;
     public IReadOnlyList<CardData> Hand => _hand;
-    /// <summary>
-    /// モンスターゾーンの5つのマス(左から順)。空きマスは null。
-    /// モンスターが場を離れても、他のモンスターのマスは変わらない。
-    /// </summary>
-    public IReadOnlyList<FieldMonster?> MonsterSlots => _monsterSlots;
+    public IReadOnlyList<CardData> Graveyard => _graveyard;
+
+    /// <summary>モンスターゾーンの5つのマス(左から順)。空きマスは null。</summary>
+    public IReadOnlyList<FieldMonster?> MonsterSlots => _monsterZone.Slots;
 
     /// <summary>場にいるモンスター(マスの左から順。空きマスは含まない)。</summary>
-    public IReadOnlyList<FieldMonster> MonsterZone => [.. _monsterSlots.OfType<FieldMonster>()];
+    public IReadOnlyList<FieldMonster> MonsterZone => _monsterZone.Occupied;
 
-    public IReadOnlyList<CardData> Graveyard => _graveyard;
+    /// <summary>魔法・罠ゾーンの5つのマス(左から順)。空きマスは null。</summary>
+    public IReadOnlyList<SpellTrapCard?> SpellTrapSlots => _spellTrapZone.Slots;
+
+    /// <summary>魔法・罠ゾーンにあるカード(マスの左から順。空きマスは含まない)。</summary>
+    public IReadOnlyList<SpellTrapCard> SpellTrapZone => _spellTrapZone.Occupied;
 
     /// <summary>デッキの一番上を手札に加える。デッキが空なら false。</summary>
     public bool Draw()
@@ -47,20 +52,28 @@ public sealed class Player
         return true;
     }
 
+    /// <summary>手札からカードを取り出す(発動した魔法など)。範囲外なら null。</summary>
+    public CardData? TakeFromHand(int handIndex)
+    {
+        if (handIndex < 0 || handIndex >= _hand.Count) return null;
+        var card = _hand[handIndex];
+        _hand.RemoveAt(handIndex);
+        return card;
+    }
+
+    public void SendToGraveyard(CardData card) => _graveyard.Add(card);
+
+    // ---- モンスターゾーン ----
+
     /// <summary>手札のカードを指定したマスに出す。手札の範囲外、またはマスが範囲外・使用中なら null。</summary>
     public FieldMonster? SummonFromHand(int handIndex, BattlePosition position, int slotIndex)
     {
-        if (handIndex < 0 || handIndex >= _hand.Count) return null;
         if (!IsSlotEmpty(slotIndex)) return null;
-
-        var card = _hand[handIndex];
-        _hand.RemoveAt(handIndex);
-        return PlaceMonster(card, position, slotIndex);
+        var card = TakeFromHand(handIndex);
+        return card is null ? null : PlaceMonster(card, position, slotIndex);
     }
 
-    /// <summary>
-    /// カードを空いているマスのうち一番左に置く(盤面の初期構築用)。空きがなければ null。
-    /// </summary>
+    /// <summary>カードを空いているマスのうち一番左に置く(盤面の初期構築用)。空きがなければ null。</summary>
     public FieldMonster? PlaceMonster(CardData card, BattlePosition position)
     {
         var slot = FindEmptySlot();
@@ -70,30 +83,58 @@ public sealed class Player
     /// <summary>カードを指定したマスに置く。マスが範囲外・使用中なら null。</summary>
     public FieldMonster? PlaceMonster(CardData card, BattlePosition position, int slotIndex)
     {
-        if (!IsSlotEmpty(slotIndex)) return null;
-
         var monster = new FieldMonster(card, position);
-        _monsterSlots[slotIndex] = monster;
-        return monster;
+        return _monsterZone.Place(slotIndex, monster) ? monster : null;
     }
 
-    /// <summary>マスが範囲内かつ空いているか。</summary>
-    public bool IsSlotEmpty(int slotIndex) =>
-        slotIndex >= 0 && slotIndex < MonsterZoneSize && _monsterSlots[slotIndex] is null;
+    /// <summary>モンスターゾーンのマスが範囲内かつ空いているか。</summary>
+    public bool IsSlotEmpty(int slotIndex) => _monsterZone.IsSlotEmpty(slotIndex);
 
-    /// <summary>空いているマスのうち一番左の位置。空きがなければ -1。</summary>
-    public int FindEmptySlot() => Array.IndexOf(_monsterSlots, null);
+    /// <summary>モンスターゾーンの空いているマスのうち一番左の位置。空きがなければ -1。</summary>
+    public int FindEmptySlot() => _monsterZone.FindEmptySlot();
 
     /// <summary>場のモンスターを墓地に送る。そのマスは空きになり、他のモンスターは動かない。場にいなければ false。</summary>
     public bool DestroyMonster(FieldMonster monster)
     {
-        var slot = Array.IndexOf(_monsterSlots, monster);
-        if (slot < 0) return false;
-
-        _monsterSlots[slot] = null;
+        if (!_monsterZone.Remove(monster)) return false;
         _graveyard.Add(monster.Card);
         return true;
     }
 
+    // ---- 魔法・罠ゾーン ----
+
+    /// <summary>手札のカードを指定したマスに裏側でセットする。手札の範囲外、またはマスが範囲外・使用中なら null。</summary>
+    public SpellTrapCard? SetSpellTrapFromHand(int handIndex, int slotIndex)
+    {
+        if (!IsSpellTrapSlotEmpty(slotIndex)) return null;
+        var card = TakeFromHand(handIndex);
+        return card is null ? null : PlaceSpellTrap(card, slotIndex);
+    }
+
+    /// <summary>カードを指定したマスに裏側で置く(セット処理の内部、および盤面の初期構築用)。マスが範囲外・使用中なら null。</summary>
+    public SpellTrapCard? PlaceSpellTrap(CardData card, int slotIndex)
+    {
+        var setCard = new SpellTrapCard(card);
+        return _spellTrapZone.Place(slotIndex, setCard) ? setCard : null;
+    }
+
+    /// <summary>魔法・罠ゾーンのマスが範囲内かつ空いているか。</summary>
+    public bool IsSpellTrapSlotEmpty(int slotIndex) => _spellTrapZone.IsSlotEmpty(slotIndex);
+
+    /// <summary>魔法・罠ゾーンの空いているマスのうち一番左の位置。空きがなければ -1。</summary>
+    public int FindEmptySpellTrapSlot() => _spellTrapZone.FindEmptySlot();
+
+    /// <summary>魔法・罠ゾーンのカードを墓地に送る。場になければ false。</summary>
+    public bool SendSpellTrapToGraveyard(SpellTrapCard setCard)
+    {
+        if (!_spellTrapZone.Remove(setCard)) return false;
+        _graveyard.Add(setCard.Card);
+        return true;
+    }
+
+    // ---- ライフ ----
+
     public void TakeDamage(int amount) => LifePoints = Math.Max(0, LifePoints - amount);
+
+    public void GainLifePoints(int amount) => LifePoints += amount;
 }

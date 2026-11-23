@@ -1,21 +1,23 @@
-@* 自分の手札。各カードに召喚・セットのボタンを付ける。押した後、出すマスを場で選ぶ。 *@
+@* 自分の手札。モンスターには召喚・セット、魔法・罠には発動・セットのボタンを付ける。 *@
 <div class="hand">
     @for (var i = 0; i < Cards.Count; i++)
     {
         var index = i;
-        var summon = new SummonRequest(index, BattlePosition.FaceUpAttack);
-        var set = new SummonRequest(index, BattlePosition.FaceDownDefense);
+        var card = Cards[index];
+        var isMonster = card.Kind is CardKind.NormalMonster or CardKind.EffectMonster;
+        var primary = new HandAction(index, isMonster ? HandActionKind.Summon : HandActionKind.ActivateSpell);
+        var secondary = new HandAction(index, isMonster ? HandActionKind.SetMonster : HandActionKind.SetSpellTrap);
         <div class="hand-card" @key="index">
-            <CardView Card="Cards[index]" Selected="Pending?.HandIndex == index" />
+            <CardView Card="card" Selected="SelectedIndex == index" />
             <div class="hand-actions">
-                <button class="btn btn-sm @(Pending == summon ? "btn-warning" : "btn-primary")"
-                        disabled="@(!CanSummon(index, summon.Position))"
-                        @onclick="() => OnSummon.InvokeAsync(summon)">
-                    召喚
+                <button class="btn btn-sm @(Pending == primary ? "btn-warning" : "btn-primary")"
+                        disabled="@(!CanDo(primary))"
+                        @onclick="() => OnAction.InvokeAsync(primary)">
+                    @(isMonster ? "召喚" : "発動")
                 </button>
-                <button class="btn btn-sm @(Pending == set ? "btn-warning" : "btn-secondary")"
-                        disabled="@(!CanSummon(index, set.Position))"
-                        @onclick="() => OnSummon.InvokeAsync(set)">
+                <button class="btn btn-sm @(Pending == secondary ? "btn-warning" : "btn-secondary")"
+                        disabled="@(!CanDo(secondary))"
+                        @onclick="() => OnAction.InvokeAsync(secondary)">
                     セット
                 </button>
             </div>
@@ -29,10 +31,13 @@
 
 @code {
     [Parameter, EditorRequired] public required IReadOnlyList<CardData> Cards { get; set; }
-    [Parameter, EditorRequired] public required Func<int, BattlePosition, bool> CanSummon { get; set; }
+    [Parameter, EditorRequired] public required Func<HandAction, bool> CanDo { get; set; }
 
-    /// <summary>マスの選択待ちになっている召喚・セット(強調表示する)。</summary>
-    [Parameter] public SummonRequest? Pending { get; set; }
+    /// <summary>マスの選択待ちになっている操作(ボタンを強調表示する)。</summary>
+    [Parameter] public HandAction? Pending { get; set; }
 
-    [Parameter] public EventCallback<SummonRequest> OnSummon { get; set; }
+    /// <summary>操作の途中で選択中のカードの位置(カードを強調表示する)。</summary>
+    [Parameter] public int? SelectedIndex { get; set; }
+
+    [Parameter] public EventCallback<HandAction> OnAction { get; set; }
 }

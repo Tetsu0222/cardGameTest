@@ -21,6 +21,8 @@ internal sealed class DuelBuilder
     private GameRulesOptions _rules = new() { InitialHandSize = 0 };
     private readonly List<CardData>[] _hands = [[], []];
     private readonly List<(CardData Card, BattlePosition Position)>[] _fields = [[], []];
+    private readonly List<CardData>[] _setSpellTraps = [[], []];
+    private readonly List<CardData>[] _deckTops = [[], []];
     private readonly int[] _deckSizes = [DefaultDeckSize, DefaultDeckSize];
 
     public static DuelBuilder Create() => new();
@@ -46,6 +48,20 @@ internal sealed class DuelBuilder
         return this;
     }
 
+    /// <summary>魔法・罠ゾーンの空いているマスのうち一番左に裏側で置く。</summary>
+    public DuelBuilder WithSetSpellTrap(Side side, CardData card)
+    {
+        _setSpellTraps[(int)side].Add(card);
+        return this;
+    }
+
+    /// <summary>デッキの一番上に積むカード(先頭から順に引かれる)。手札の指定より後、水増し用カードより前に置く。</summary>
+    public DuelBuilder WithDeckTop(Side side, params CardData[] cards)
+    {
+        _deckTops[(int)side].AddRange(cards);
+        return this;
+    }
+
     public DuelBuilder WithDeckSize(Side side, int size)
     {
         _deckSizes[(int)side] = size;
@@ -63,7 +79,7 @@ internal sealed class DuelBuilder
     {
         var index = (int)side;
         var hand = _hands[index];
-        var deck = hand.Concat(Enumerable.Repeat(TestCards.Filler(), _deckSizes[index]));
+        var deck = hand.Concat(_deckTops[index]).Concat(Enumerable.Repeat(TestCards.Filler(), _deckSizes[index]));
         var player = new Player(side.ToString(), deck, _rules);
 
         // 指定した手札はデッキの先頭に積んであるので、その枚数だけ引く
@@ -75,6 +91,11 @@ internal sealed class DuelBuilder
         foreach (var (card, position) in _fields[index])
         {
             player.PlaceMonster(card, position);
+        }
+
+        foreach (var card in _setSpellTraps[index])
+        {
+            player.PlaceSpellTrap(card, player.FindEmptySpellTrapSlot());
         }
 
         return player;

@@ -24,6 +24,14 @@ public static class ActionErrorMessages
         ActionError.AlreadyAttacked => "このモンスターはこのターンすでに攻撃しています。",
         ActionError.InvalidTarget => "相手の場のモンスターを選んでください。",
         ActionError.DirectAttackNotAllowed => "相手の場にモンスターがいるため、ダイレクトアタックできません。",
+        ActionError.NotASpell => "魔法カードではありません。",
+        ActionError.NotASpellOrTrap => "魔法・罠カードではありません。",
+        ActionError.SpellTrapZoneFull => "魔法・罠ゾーンに空きがありません。",
+        ActionError.CardNotOnYourField => "自分の場のカードを選んでください。",
+        ActionError.TargetRequired => "効果の対象を選んでください。",
+        ActionError.TargetNotAllowed => "このカードは対象を取りません。",
+        ActionError.NoValidTarget => "効果の対象にできるモンスターがいません。",
+        ActionError.ActivationConditionNotMet => "今はこのカードを発動できません。",
         _ => error.ToString(),
     };
 }

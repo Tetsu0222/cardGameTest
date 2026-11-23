@@ -1,0 +1,49 @@
+@* 1人分の魔法・罠ゾーン(5マス)。マスの位置は固定。 *@
+<div class="zone">
+    @for (var i = 0; i < Slots.Count; i++)
+    {
+        var setCard = Slots[i];
+        <div class="slot" @key="i">
+            @if (setCard is null)
+            {
+                var slotIndex = i;
+                var clickable = IsEmptySlotClickable?.Invoke(slotIndex) ?? false;
+                <div class="empty @(clickable ? "clickable" : null)"
+                     @onclick="() => HandleEmptySlotClick(slotIndex, clickable)"></div>
+            }
+            else
+            {
+                var clickable = IsCardClickable?.Invoke(setCard) ?? false;
+                <CardView Card="setCard.Card"
+                          Hidden="IsOpponentField && !setCard.IsFaceUp"
+                          Label="@(!IsOpponentField && !setCard.IsFaceUp ? (clickable ? "クリックで発動" : "セット中") : null)"
+                          Clickable="clickable"
+                          OnClick="() => OnCardClick.InvokeAsync(setCard)" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>魔法・罠ゾーンのマス(左から順)。空きマスは null。</summary>
+    [Parameter, EditorRequired] public required IReadOnlyList<SpellTrapCard?> Slots { get; set; }
+
+    /// <summary>相手の場か。相手の裏側のカードは中身を隠す。</summary>
+    [Parameter] public bool IsOpponentField { get; set; }
+
+    [Parameter] public Func<SpellTrapCard, bool>? IsCardClickable { get; set; }
+    [Parameter] public EventCallback<SpellTrapCard> OnCardClick { get; set; }
+
+    /// <summary>空きマスを選べるか(セット先の選択中など)。引数はマスの位置。</summary>
+    [Parameter] public Func<int, bool>? IsEmptySlotClickable { get; set; }
+
+    [Parameter] public EventCallback<int> OnEmptySlotClick { get; set; }
+
+    private async Task HandleEmptySlotClick(int slotIndex, bool clickable)
+    {
+        if (clickable)
+        {
+            await OnEmptySlotClick.InvokeAsync(slotIndex);
+        }
+    }
+}

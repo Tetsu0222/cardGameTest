@@ -1,4 +1,4 @@
-@* 1枚のカード。手札・場の両方で使う。 *@
+@* 1枚のカード。手札・場の両方で使う。モンスターは星とATK/DEF、魔法・罠は種類と効果を表示する。 *@
 <div class="card-view @CssClass" @onclick="HandleClick" title="@Tooltip">
     @if (Hidden)
     {
@@ -7,11 +7,19 @@
     else
     {
         <div class="card-name">@Card.Name</div>
-        <div class="card-level">@(new string('★', Card.Level))</div>
-        <div class="card-stats">
-            <span>ATK @Card.Attack</span>
-            <span>DEF @Card.Defense</span>
-        </div>
+        @if (IsMonster)
+        {
+            <div class="card-level">@(new string('★', Card.Level))</div>
+            <div class="card-stats">
+                <span>ATK @Card.Attack</span>
+                <span>DEF @Card.Defense</span>
+            </div>
+        }
+        else
+        {
+            <div class="card-kind">@KindText</div>
+            <div class="card-text">@EffectText</div>
+        }
         @if (Label is not null)
         {
             <div class="card-label">@Label</div>
@@ -22,7 +30,7 @@
 @code {
     [Parameter, EditorRequired] public required CardData Card { get; set; }
 
-    /// <summary>裏向きで表示する(相手のセットモンスターなど)。</summary>
+    /// <summary>裏向きで表示する(相手のセットカードなど)。</summary>
     [Parameter] public bool Hidden { get; set; }
 
     /// <summary>守備表示(横向き)で表示する。</summary>
@@ -31,19 +39,28 @@
     [Parameter] public bool Selected { get; set; }
     [Parameter] public bool Clickable { get; set; }
 
-    /// <summary>カード下部に出す補足(自分のセットモンスターの「セット中」など)。</summary>
+    /// <summary>カード下部に出す補足(自分のセットカードの「セット中」など)。</summary>
     [Parameter] public string? Label { get; set; }
 
     [Parameter] public EventCallback OnClick { get; set; }
 
+    private bool IsMonster => Card.Kind is CardKind.NormalMonster or CardKind.EffectMonster;
+
+    private string KindText => Card.Kind == CardKind.Trap ? "【罠】" : "【魔法】";
+
+    private string EffectText => Card.Effect is null ? "" : CardEffectText.Describe(Card.Effect);
+
     private string CssClass => string.Join(' ', new[]
     {
+        Card.Kind switch { CardKind.Spell => "spell", CardKind.Trap => "trap", _ => null },
         Defense ? "defense" : null,
         Selected ? "selected" : null,
         Clickable ? "clickable" : null,
     }.Where(c => c is not null));
 
-    private string? Tooltip => Hidden ? null : $"{Card.Name} Lv{Card.Level} ATK {Card.Attack} / DEF {Card.Defense}";
+    private string? Tooltip => Hidden ? null
+        : IsMonster ? $"{Card.Name} Lv{Card.Level} ATK {Card.Attack} / DEF {Card.Defense}"
+        : $"{Card.Name} {KindText}{EffectText}";
 
     private async Task HandleClick()
     {

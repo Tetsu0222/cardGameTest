@@ -20,6 +20,14 @@ public enum ActionError
     AlreadyAttacked,
     InvalidTarget,
     DirectAttackNotAllowed,
+    NotASpell,
+    NotASpellOrTrap,
+    SpellTrapZoneFull,
+    CardNotOnYourField,
+    TargetRequired,
+    TargetNotAllowed,
+    NoValidTarget,
+    ActivationConditionNotMet,
 }
 
 /// <summary>操作の結果。ゲーム上の通常の失敗は例外ではなくこの戻り値で表す。</summary>
@@ -30,4 +38,7 @@ public sealed record ActionResult(ActionError Error)
     public bool IsSuccess => Error == ActionError.None;
 
     public static ActionResult Fail(ActionError error) => new(error);
+
+    /// <summary><see cref="ActionError.None"/> なら成功、それ以外は失敗の結果にする。</summary>
+    public static ActionResult From(ActionError error) => error == ActionError.None ? Success : Fail(error);
 }
