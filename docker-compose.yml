@@ -1,0 +1,24 @@
+# ローカルに .NET SDK を入れずに開発するための設定。
+#   docker compose run --rm dotnet dotnet build
+#   docker compose run --rm dotnet dotnet test
+#   docker compose up web      -> http://localhost:5000
+services:
+  dotnet:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src
+    volumes:
+      - .:/src
+      - nuget:/root/.nuget/packages
+
+  web:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src
+    volumes:
+      - .:/src
+      - nuget:/root/.nuget/packages
+    ports:
+      - "5000:5000"
+    command: dotnet watch run --project src/CardGame.Web --urls http://0.0.0.0:5000 --no-launch-profile
+
+volumes:
+  nuget:

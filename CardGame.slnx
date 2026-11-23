@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CardGame.AI/CardGame.AI.csproj" />
+    <Project Path="src/CardGame.Core/CardGame.Core.csproj" />
+    <Project Path="src/CardGame.Web/CardGame.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CardGame.Tests/CardGame.Tests.csproj" />
+  </Folder>
+</Solution>
