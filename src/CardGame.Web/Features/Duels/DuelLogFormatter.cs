@@ -19,6 +19,8 @@ public static class DuelLogFormatter
         DuelLogKind.DeckOut => $"{entry.PlayerName}はデッキ切れでドローできない",
         DuelLogKind.Won => $"{entry.PlayerName}の勝利",
         DuelLogKind.Tributed => $"{entry.PlayerName}は「{entry.CardName}」をリリース",
+        DuelLogKind.TrapActivated => $"{entry.PlayerName}は罠「{entry.CardName}」を発動",
+        DuelLogKind.AttackNegated => $"{entry.PlayerName}の「{entry.CardName}」の攻撃は無効になった",
         DuelLogKind.SpellActivated when entry.TargetCardName is not null || entry.IsTargetHidden =>
             $"{entry.PlayerName}は「{entry.CardName}」を発動({TargetText(entry)}を対象)",
         DuelLogKind.SpellActivated => $"{entry.PlayerName}は「{entry.CardName}」を発動",

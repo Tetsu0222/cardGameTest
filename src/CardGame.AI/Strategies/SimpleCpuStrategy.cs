@@ -1,3 +1,4 @@
+using CardGame.Core.Battle;
 using CardGame.Core.Cards;
 using CardGame.Core.Duels;
 using CardGame.Core.Effects;
@@ -12,7 +13,10 @@ namespace CardGame.AI.Strategies;
 /// <list type="bullet">
 /// <item>メインフェーズ1では、まず損をしない魔法を手札から発動する(全体破壊は相手のモンスターの方が多いときだけ)。対象を取る魔法は、相手の見えているモンスターのうち最も攻撃力の高いものを狙う。</item>
 /// <item>次に、相手の攻撃表示モンスター以上の攻撃力があれば、最も攻撃力の高いモンスターを召喚する。なければ最も守備力の高いモンスターをセットする。上級モンスターは、攻撃力の低いモンスターから順にリリースし、リリースするどのモンスターよりも強くなる場合だけアドバンス召喚する(アドバンスセットはしない)。</item>
+/// <item>メインフェーズでは、召喚の後に手札の罠をすべてセットする。</item>
 /// <item>バトルフェーズでは、戦闘で一方的に破壊できる相手にだけ攻撃する(相打ちや返り討ちは避ける)。相手の場が空なら直接攻撃する。</item>
+/// <item>相手の攻撃宣言・召喚に対しては、破壊する罠を優先して発動する。攻撃を無効にするだけの罠は、その戦闘で損をするときだけ使う。
+/// 召喚されたモンスターを破壊する罠は、攻撃力が <see cref="MinAttackWorthTrapping"/> 以上のときだけ使う。</item>
 /// </list>
 /// 裏側守備モンスターの守備力は見えないため、<see cref="AssumedFaceDownDefense"/> と仮定する。
 /// </summary>
@@ -20,34 +24,49 @@ public sealed class SimpleCpuStrategy
 {
     public const int AssumedFaceDownDefense = 1500;
 
+    /// <summary>召喚されたモンスターを罠で破壊する価値がある攻撃力の下限。</summary>
+    public const int MinAttackWorthTrapping = 1500;
+
     // 1手ごとに盤面が進む(カードを使う・召喚権を使う・攻撃済みになる・フェーズが進む)ため必ず終わるが、念のため上限を設ける
     private const int MaxStepsPerTurn = 200;
 
     /// <summary>
-    /// 現在のターンプレイヤーとしての次の1手を決める(盤面は変更しない)。決着がついていれば null。
+    /// 次の1手を決める(盤面は変更しない)。決着がついていれば null。
+    /// 罠を発動するかを決める機会が開いていれば、罠を持つ側(ターンプレイヤーの相手)としての1手を返す。
+    /// それ以外は、ターンプレイヤーとしての1手を返す。
     /// </summary>
     public CpuAction? DecideNextAction(Duel duel)
     {
         if (duel.IsFinished) return null;
+        if (duel.PendingResponse is { } window) return DecideResponse(duel, window);
 
         CpuAction advance = new CpuAdvancePhaseAction();
         return duel.CurrentPhase switch
         {
-            Phase.Main1 => DecideSpell(duel) ?? DecideSummon(duel) ?? advance,
+            Phase.Main1 => DecideSpell(duel) ?? DecideSummon(duel) ?? DecideSetTrap(duel) ?? advance,
             Phase.Battle => DecideAttack(duel) ?? advance,
+            Phase.Main2 => DecideSetTrap(duel) ?? advance,
             _ => advance,
         };
     }
 
     /// <summary>
-    /// 決めた1手を実行する。想定外に拒否された場合は、同じ手を繰り返して止まらないよう次のフェーズへ進める。
+    /// 決めた1手を実行する。想定外に拒否された場合は、同じ手を繰り返して止まらないよう先へ進める
+    /// (罠の機会が開いていれば見送り、そうでなければ次のフェーズへ進む)。
     /// </summary>
     public static ActionResult Execute(Duel duel, CpuAction action)
     {
         var result = action.ExecuteOn(duel);
         if (!result.IsSuccess)
         {
-            duel.AdvancePhase();
+            if (duel.PendingResponse is not null)
+            {
+                duel.PassResponse();
+            }
+            else
+            {
+                duel.AdvancePhase();
+            }
         }
 
         return result;
@@ -153,6 +172,58 @@ public sealed class SimpleCpuStrategy
 
     private static IReadOnlyList<FieldMonster>? NullIfEmpty(IReadOnlyList<FieldMonster> tributes) =>
         tributes.Count == 0 ? null : tributes;
+
+    // ---- 罠 ----
+
+    private static CpuAction? DecideSetTrap(Duel duel)
+    {
+        var hand = duel.CurrentPlayer.Hand;
+        for (var i = 0; i < hand.Count; i++)
+        {
+            if (hand[i].Kind == CardKind.Trap && duel.CanSetSpellTrap(i).IsSuccess)
+            {
+                return new CpuSetSpellTrapAction(i);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>罠を持つ側として、発動する罠を選ぶ。発動する価値のある罠がなければ見送る。</summary>
+    private static CpuAction DecideResponse(Duel duel, ResponseWindow window)
+    {
+        var trap = duel.FindActivatableTraps()
+            .Where(t => t.Card.Effect is { TargetSide: null } effect && IsWorthResponding(effect, window))
+            .OrderByDescending(t => DestroysMonster(t.Card.Effect))
+            .FirstOrDefault();
+
+        return trap is null ? new CpuPassResponseAction() : new CpuActivateTrapAction(trap, Target: null);
+    }
+
+    private static bool IsWorthResponding(CardEffect effect, ResponseWindow window) =>
+        effect.Actions.All(action => action switch
+        {
+            NegateAttackAction => IsAttackHarmful(window),
+            DestroySummonedMonsterAction => window.TriggerMonster.Card.Attack >= MinAttackWorthTrapping,
+            DestroyAllMonstersAction { Side: MonsterSide.Own or MonsterSide.Both } => false,
+            _ => true,
+        });
+
+    /// <summary>この攻撃をそのまま受けると、罠を持つ側がダメージを受けるかモンスターを失うか。</summary>
+    private static bool IsAttackHarmful(ResponseWindow window)
+    {
+        var outcome = CalculateBattleOutcome.Execute(window.TriggerMonster.Card.Attack, FaceUpView(window.AttackTarget));
+        return outcome.TargetDestroyed || outcome.DamageToTargetOwner > 0;
+    }
+
+    /// <summary>自分のモンスターは裏側でも中身が分かるため、表になった状態として戦闘結果を見積もる。</summary>
+    private static FieldMonster? FaceUpView(FieldMonster? monster) =>
+        monster is { Position: BattlePosition.FaceDownDefense }
+            ? new FieldMonster(monster.Card, BattlePosition.FaceUpDefense)
+            : monster;
+
+    private static bool DestroysMonster(CardEffect? effect) =>
+        effect is not null && effect.Actions.Any(a => a is DestroyAttackingMonsterAction or DestroySummonedMonsterAction or DestroyAllMonstersAction);
 
     // ---- 攻撃 ----
 

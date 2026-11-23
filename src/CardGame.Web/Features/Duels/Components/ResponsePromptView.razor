@@ -1,0 +1,23 @@
+@* CPU の攻撃宣言・召喚に対して、罠を発動するかを選ぶ。盤面中央の実況の下に出す。 *@
+<div class="prompt">
+    <div class="prompt-text">@Prompt</div>
+    <div class="prompt-actions">
+        @foreach (var trap in Traps)
+        {
+            <button class="btn btn-sm btn-trap" @key="trap" @onclick="() => OnActivate.InvokeAsync(trap)">
+                「@trap.Card.Name」を発動
+            </button>
+        }
+        <button class="btn btn-sm btn-light" @onclick="OnPass">発動しない</button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required string Prompt { get; set; }
+
+    /// <summary>今発動できる罠。</summary>
+    [Parameter, EditorRequired] public required IReadOnlyList<SpellTrapCard> Traps { get; set; }
+
+    [Parameter] public EventCallback<SpellTrapCard> OnActivate { get; set; }
+    [Parameter] public EventCallback OnPass { get; set; }
+}

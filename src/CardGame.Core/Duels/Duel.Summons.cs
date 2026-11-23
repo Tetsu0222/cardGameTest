@@ -1,4 +1,5 @@
 using CardGame.Core.Cards;
+using CardGame.Core.Effects;
 using CardGame.Core.Players;
 using CardGame.Core.Summons;
 using CardGame.Core.Turns;
@@ -18,6 +19,7 @@ public sealed partial class Duel
     public ActionResult CanSummon(int handIndex, BattlePosition position)
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
+        if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
         if (CurrentPhase is not (Phase.Main1 or Phase.Main2)) return ActionResult.Fail(ActionError.WrongPhase);
         if (position == BattlePosition.FaceUpDefense) return ActionResult.Fail(ActionError.InvalidPosition);
         if (handIndex < 0 || handIndex >= CurrentPlayer.Hand.Count) return ActionResult.Fail(ActionError.InvalidHandIndex);
@@ -100,11 +102,22 @@ public sealed partial class Duel
         }
 
         var card = CurrentPlayer.Hand[handIndex];
-        CurrentPlayer.SummonFromHand(handIndex, position, slotIndex);
+        var summoned = CurrentPlayer.SummonFromHand(handIndex, position, slotIndex)
+            ?? throw new InvalidOperationException("Summon passed validation but could not be placed.");
         NormalSummonUsed = true;
 
-        var kind = position == BattlePosition.FaceDownDefense ? DuelLogKind.Set : DuelLogKind.Summoned;
-        _log.Add(kind, CurrentPlayer, card.Name);
+        if (position == BattlePosition.FaceDownDefense)
+        {
+            _log.Add(DuelLogKind.Set, CurrentPlayer, card.Name);
+        }
+        else
+        {
+            _log.Add(DuelLogKind.Summoned, CurrentPlayer, card.Name);
+
+            // 召喚成功時(セットは含まない)に、相手が罠を発動できる機会を開く
+            TryOpenResponseWindow(TrapTrigger.OpponentMonsterSummoned, summoned, attackTarget: null);
+        }
+
         return ActionResult.Success;
     }
 }

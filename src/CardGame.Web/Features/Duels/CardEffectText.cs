@@ -6,7 +6,15 @@ namespace CardGame.Web.Features.Duels;
 public static class CardEffectText
 {
     public static string Describe(CardEffect effect) =>
-        string.Concat(effect.Actions.Select(action => DescribeAction(action, effect.TargetSide) + "。"));
+        TriggerText(effect.Trigger)
+        + string.Concat(effect.Actions.Select(action => DescribeAction(action, effect.TargetSide) + "。"));
+
+    private static string TriggerText(TrapTrigger? trigger) => trigger switch
+    {
+        TrapTrigger.OpponentAttackDeclared => "相手モンスターの攻撃宣言時に発動できる。",
+        TrapTrigger.OpponentMonsterSummoned => "相手がモンスターを召喚した時に発動できる。",
+        _ => "",
+    };
 
     private static string DescribeAction(EffectAction action, MonsterSide? targetSide) => action switch
     {
@@ -14,7 +22,11 @@ public static class CardEffectText
         DealDamageAction damage => $"相手に{damage.Amount}ダメージを与える",
         GainLifePointsAction gain => $"自分は{gain.Amount}ライフポイント回復する",
         DestroyTargetMonsterAction => $"{SideText(targetSide)}モンスター1体を対象として破壊する",
+        DestroyAllMonstersAction { AttackPositionOnly: true } all => $"{SideText(all.Side)}攻撃表示モンスターをすべて破壊する",
         DestroyAllMonstersAction all => $"{SideText(all.Side)}モンスターをすべて破壊する",
+        DestroyAttackingMonsterAction => "攻撃モンスターを破壊する",
+        NegateAttackAction => "その攻撃を無効にする",
+        DestroySummonedMonsterAction => "召喚したモンスターを破壊する",
         _ => action.GetType().Name,
     };
 

@@ -1,6 +1,7 @@
 using CardGame.AI.Strategies;
 using CardGame.Core.Cards;
 using CardGame.Core.Duels;
+using CardGame.Core.Effects;
 using CardGame.Core.Players;
 using CardGame.Core.Summons;
 using CardGame.Core.Turns;
@@ -20,6 +21,7 @@ namespace CardGame.Web.Features.Duels;
 /// <item>攻撃: 自分のモンスター → <see cref="SelectedAttacker"/> → 相手のモンスター(またはダイレクトアタック)</item>
 /// </list>
 /// CPU のターンは1手ずつ「何をするか(実況・強調表示)→ 結果」の順に間を置いて再生し、途中経過を <see cref="OnChange"/> で通知する。
+/// 罠: あなたの攻撃宣言・召喚には CPU がその場で応じ、CPU の攻撃宣言・召喚には、あなたが発動するか選ぶまで再生を止めて待つ。
 /// </remarks>
 public sealed class DuelViewModel
 {
@@ -37,6 +39,7 @@ public sealed class DuelViewModel
     private readonly List<FieldMonster> _pendingTributes = [];
     private readonly Dictionary<Player, int> _lifeChanges = [];
     private bool _skipCpuPlayback;
+    private TaskCompletionSource? _humanResponse;
 
     public DuelViewModel(
         IOptions<GameRulesOptions> rules,
@@ -177,7 +180,8 @@ public sealed class DuelViewModel
         && PendingPlacement is { Kind: HandActionKind.Summon or HandActionKind.SetMonster } placement
         && Duel.CanSummon(placement.HandIndex, ToPosition(placement.Kind), slotIndex, [.. _pendingTributes]).IsSuccess;
 
-    public void PlaceInMonsterSlot(int slotIndex)
+    /// <summary>選んだマスに召喚する。CPU が罠で応じる場合は、その処理まで行う。</summary>
+    public async Task PlaceInMonsterSlotAsync(int slotIndex)
     {
         if (!CanPlaceInMonsterSlot(slotIndex)) return;
         if (PendingPlacement is not { } placement) return;
@@ -185,6 +189,7 @@ public sealed class DuelViewModel
         IReadOnlyList<FieldMonster> tributes = [.. _pendingTributes];
         ClearSelection();
         Perform(() => Duel.Summon(placement.HandIndex, ToPosition(placement.Kind), slotIndex, tributes));
+        await LetCpuRespondAsync();
     }
 
     public bool CanPlaceInSpellTrapSlot(int slotIndex) =>
@@ -200,13 +205,22 @@ public sealed class DuelViewModel
 
     // ---- セットしたカード ----
 
+    /// <summary>セットしたカードをクリックして発動できるか。自分のターンは魔法、CPU の行動に応じるときは罠。</summary>
     public bool CanActivateSetCard(SpellTrapCard setCard) =>
-        IsHumanTurn && !HasPendingOperation && Duel.CanActivateSetSpell(setCard).IsSuccess;
+        IsAwaitingHumanResponse
+            ? Duel.CanActivateTrap(setCard).IsSuccess
+            : IsHumanTurn && !HasPendingOperation && Duel.CanActivateSetSpell(setCard).IsSuccess;
 
-    /// <summary>セットした魔法を発動する。対象を取る魔法なら対象の選択待ちになる。</summary>
+    /// <summary>セットしたカードを発動する。対象を取る魔法なら対象の選択待ちになる。</summary>
     public void ActivateSetCard(SpellTrapCard setCard)
     {
         if (!CanActivateSetCard(setCard)) return;
+        if (IsAwaitingHumanResponse)
+        {
+            RespondWithTrap(setCard);
+            return;
+        }
+
         ClearSelection();
         ErrorMessage = null;
 
@@ -242,7 +256,7 @@ public sealed class DuelViewModel
         return SelectedAttacker is not null && Duel.CanAttack(SelectedAttacker, monster).IsSuccess;
     }
 
-    public void ClickMonster(FieldMonster monster)
+    public async Task ClickMonsterAsync(FieldMonster monster)
     {
         if (!IsMonsterClickable(monster)) return;
 
@@ -253,7 +267,7 @@ public sealed class DuelViewModel
         else if (PendingPlacement is not null)
         {
             // リリースするモンスターをクリックしたら、そのマスに出す
-            PlaceInMonsterSlot(Human.FindMonsterSlot(monster));
+            await PlaceInMonsterSlotAsync(Human.FindMonsterSlot(monster));
         }
         else if (PendingSpell is not null)
         {
@@ -266,11 +280,11 @@ public sealed class DuelViewModel
         }
         else
         {
-            Attack(monster);
+            await AttackAsync(monster);
         }
     }
 
-    public void DirectAttack() => Attack(target: null);
+    public Task DirectAttackAsync() => AttackAsync(target: null);
 
     /// <summary>選択途中の召喚・セット・発動・攻撃をやめる。</summary>
     public void CancelSelection() => ClearSelection();
@@ -345,9 +359,15 @@ public sealed class DuelViewModel
                 Highlight(action);
                 await ShowAsync();
 
-                // 2) 結果(破壊・ライフの増減)を見せる
+                // 2) 実行する。攻撃宣言・召喚にあなたが罠で応じられるなら、選ぶまで待つ
                 Perform(() => SimpleCpuStrategy.Execute(Duel, action));
                 ErrorMessage = null; // CPU の手が拒否されても、プレイヤーへのエラーとしては出さない
+                if (Duel.PendingResponse?.Responder == Human)
+                {
+                    await WaitForHumanResponseAsync();
+                }
+
+                // 3) 結果(破壊・ライフの増減)を見せる
                 await ShowAsync();
                 _highlightedMonsters.Clear();
             }
@@ -376,6 +396,92 @@ public sealed class DuelViewModel
             case CpuSummonAction { Tributes: { } tributes }:
                 _highlightedMonsters.UnionWith(tributes);
                 break;
+
+            case CpuActivateTrapAction when Duel.PendingResponse is { } window:
+                _highlightedMonsters.Add(window.TriggerMonster);
+                break;
+        }
+    }
+
+    // ---- 罠の応答 ----
+
+    /// <summary>CPU の攻撃宣言・召喚に対して、あなたが罠を発動するかを選んでいる途中か。</summary>
+    public bool IsAwaitingHumanResponse => _humanResponse is not null;
+
+    /// <summary>今発動できるあなたの罠。</summary>
+    public IReadOnlyList<SpellTrapCard> RespondableTraps => IsAwaitingHumanResponse ? Duel.FindActivatableTraps() : [];
+
+    /// <summary>罠を発動するかを尋ねる文言。尋ねていなければ null。</summary>
+    public string? ResponsePrompt => IsAwaitingHumanResponse && Duel.PendingResponse is { } window
+        ? window.Trigger == TrapTrigger.OpponentAttackDeclared
+            ? $"{CpuName}の「{window.TriggerMonster.Card.Name}」の攻撃宣言に対して、罠を発動しますか?"
+            : $"{CpuName}の「{window.TriggerMonster.Card.Name}」の召喚に対して、罠を発動しますか?"
+        : null;
+
+    /// <summary>罠を発動する。発動が拒否された場合は、選び直せるよう待ち続ける。</summary>
+    public void RespondWithTrap(SpellTrapCard trap)
+    {
+        if (_humanResponse is not { } response) return;
+
+        Commentary = new Commentary($"{HumanName}は罠「{trap.Card.Name}」を発動", trap.Card);
+        Perform(() => Duel.ActivateTrap(trap, target: null));
+        if (Duel.PendingResponse is null)
+        {
+            response.TrySetResult();
+        }
+    }
+
+    /// <summary>罠を発動せずに見送る。</summary>
+    public void PassResponse()
+    {
+        if (_humanResponse is not { } response) return;
+
+        Perform(() => Duel.PassResponse());
+        response.TrySetResult();
+    }
+
+    private async Task WaitForHumanResponseAsync()
+    {
+        _humanResponse = new TaskCompletionSource();
+        NotifyChanged();
+        try
+        {
+            await _humanResponse.Task;
+        }
+        finally
+        {
+            _humanResponse = null;
+        }
+    }
+
+    /// <summary>あなたの攻撃宣言・召喚に対して、CPU が罠で応じるかを決めて実行する。</summary>
+    private async Task LetCpuRespondAsync()
+    {
+        if (Duel.PendingResponse?.Responder != Cpu) return;
+
+        IsCpuPlaying = true;
+        _skipCpuPlayback = false;
+        try
+        {
+            var action = _cpu.DecideNextAction(Duel);
+            if (action is null) return;
+
+            if (CpuActionCommentary.Create(action, Cpu) is { } commentary)
+            {
+                Commentary = commentary;
+                _lifeChanges.Clear();
+                Highlight(action);
+                await ShowAsync();
+            }
+
+            Perform(() => SimpleCpuStrategy.Execute(Duel, action));
+            ErrorMessage = null;
+        }
+        finally
+        {
+            IsCpuPlaying = false;
+            _highlightedMonsters.Clear();
+            NotifyChanged();
         }
     }
 
@@ -428,11 +534,12 @@ public sealed class DuelViewModel
             : Duel.ActivateSpellFromHand(pending.HandIndex ?? -1, target));
     }
 
-    private void Attack(FieldMonster? target)
+    private async Task AttackAsync(FieldMonster? target)
     {
         if (SelectedAttacker is not { } attacker) return;
         SelectedAttacker = null;
         Perform(() => Duel.Attack(attacker, target));
+        await LetCpuRespondAsync();
     }
 
     private Duel CreateDuel()

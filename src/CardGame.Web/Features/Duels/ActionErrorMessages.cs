@@ -34,6 +34,10 @@ public static class ActionErrorMessages
         ActionError.TargetNotAllowed => "このカードは対象を取りません。",
         ActionError.NoValidTarget => "効果の対象にできるモンスターがいません。",
         ActionError.ActivationConditionNotMet => "今はこのカードを発動できません。",
+        ActionError.ResponsePending => "相手が罠を発動するかを選んでいます。",
+        ActionError.NoResponseWindow => "今は罠を発動できません。",
+        ActionError.NotATrap => "罠カードではありません。",
+        ActionError.TrapSetThisTurn => "罠はセットしたターンには発動できません。",
         _ => error.ToString(),
     };
 }

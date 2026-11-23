@@ -55,7 +55,7 @@ public sealed partial class Duel
         var check = CanSetSpellTrap(handIndex, slotIndex);
         if (!check.IsSuccess) return check;
 
-        CurrentPlayer.SetSpellTrapFromHand(handIndex, slotIndex);
+        CurrentPlayer.SetSpellTrapFromHand(handIndex, slotIndex, TurnCount);
         _log.Add(DuelLogKind.SpellTrapSet, CurrentPlayer);
         return ActionResult.Success;
     }
@@ -125,6 +125,7 @@ public sealed partial class Duel
     private ActionResult CheckMainPhaseAction()
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
+        if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
         if (CurrentPhase is not (Phase.Main1 or Phase.Main2)) return ActionResult.Fail(ActionError.WrongPhase);
         return ActionResult.Success;
     }
@@ -157,7 +158,8 @@ public sealed partial class Duel
 
     private ActionResult CheckSpellEffect(CardData card, FieldMonster? target, bool isTargetChosen)
     {
-        if (card.Effect is null) return ActionResult.Fail(ActionError.ActivationConditionNotMet);
+        // 発動タイミングを持つ効果は罠用(魔法としては発動できない)
+        if (card.Effect is null || card.Effect.Trigger is not null) return ActionResult.Fail(ActionError.ActivationConditionNotMet);
 
         var error = isTargetChosen
             ? CheckEffectActivation.Execute(card.Effect, CurrentPlayer, OpponentPlayer, target)

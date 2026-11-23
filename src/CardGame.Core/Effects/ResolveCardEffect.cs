@@ -9,13 +9,17 @@ public static class ResolveCardEffect
 {
     /// <param name="controller">効果を使ったプレイヤー。</param>
     /// <param name="target">対象。対象を取らない効果では null。</param>
-    public static void Execute(
+    /// <param name="triggerMonster">罠の発動のきっかけになったモンスター(攻撃したモンスター・召喚されたモンスター)。罠以外では null。</param>
+    public static EffectOutcome Execute(
         CardEffect effect,
         Player controller,
         Player opponent,
         FieldMonster? target,
-        DuelLog log)
+        DuelLog log,
+        FieldMonster? triggerMonster = null)
     {
+        var isAttackNegated = false;
+
         foreach (var action in effect.Actions)
         {
             switch (action)
@@ -34,17 +38,25 @@ public static class ResolveCardEffect
                     log.Add(DuelLogKind.LifeGained, controller, amount: gain.Amount);
                     break;
 
-                case DestroyTargetMonsterAction when target is not null:
+                case DestroyTargetMonsterAction:
                     DestroyIfOnField(target, controller, opponent, log);
                     break;
 
-                case DestroyTargetMonsterAction:
+                case DestroyAttackingMonsterAction:
+                case DestroySummonedMonsterAction:
+                    DestroyIfOnField(triggerMonster, controller, opponent, log);
+                    break;
+
+                case NegateAttackAction:
+                    isAttackNegated = true;
                     break;
 
                 case DestroyAllMonstersAction all:
                     foreach (var player in PlayersOn(all.Side, controller, opponent))
                     {
-                        foreach (var monster in player.MonsterZone)
+                        var monsters = player.MonsterZone
+                            .Where(m => !all.AttackPositionOnly || m.Position == BattlePosition.FaceUpAttack);
+                        foreach (var monster in monsters)
                         {
                             player.DestroyMonster(monster);
                             log.Add(DuelLogKind.Destroyed, player, monster.Card.Name);
@@ -56,6 +68,8 @@ public static class ResolveCardEffect
                     throw new InvalidOperationException($"Unknown effect action: {action.GetType().Name}");
             }
         }
+
+        return isAttackNegated ? new EffectOutcome(IsAttackNegated: true) : EffectOutcome.None;
     }
 
     private static void DrawCards(Player player, int count, DuelLog log)
@@ -72,15 +86,18 @@ public static class ResolveCardEffect
         }
     }
 
-    private static void DestroyIfOnField(FieldMonster target, Player controller, Player opponent, DuelLog log)
+    /// <summary>モンスターが場にいれば破壊する。すでに場を離れていれば何もしない。</summary>
+    private static void DestroyIfOnField(FieldMonster? monster, Player controller, Player opponent, DuelLog log)
     {
-        var owner = controller.MonsterZone.Contains(target) ? controller
-            : opponent.MonsterZone.Contains(target) ? opponent
+        if (monster is null) return;
+
+        var owner = controller.MonsterZone.Contains(monster) ? controller
+            : opponent.MonsterZone.Contains(monster) ? opponent
             : null;
         if (owner is null) return;
 
-        owner.DestroyMonster(target);
-        log.Add(DuelLogKind.Destroyed, owner, target.Card.Name);
+        owner.DestroyMonster(monster);
+        log.Add(DuelLogKind.Destroyed, owner, monster.Card.Name);
     }
 
     private static IEnumerable<Player> PlayersOn(MonsterSide side, Player controller, Player opponent) => side switch

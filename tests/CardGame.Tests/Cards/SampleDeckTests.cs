@@ -58,9 +58,25 @@ public class SampleDeckTests
     }
 
     [Fact]
-    public void Create_ContainsNoTraps_UntilTrapsAreImplemented()
+    public void Create_ContainsOnlyTrapsWithValidEffectsAndTrigger()
     {
-        Assert.DoesNotContain(SampleDeck.Create(), c => c.Kind == CardKind.Trap);
+        var traps = SampleDeck.Create().Where(c => c.Kind == CardKind.Trap).ToList();
+
+        Assert.NotEmpty(traps);
+        Assert.All(traps, card =>
+        {
+            Assert.NotNull(card.Effect);
+            Assert.NotNull(card.Effect.Trigger);
+            Assert.True(ValidateCardEffect.Execute(card.Effect));
+        });
+    }
+
+    [Fact]
+    public void Create_ContainsOnlySpellsWithoutTrigger()
+    {
+        var spells = SampleDeck.Create().Where(c => c.Kind == CardKind.Spell);
+
+        Assert.All(spells, card => Assert.Null(card.Effect?.Trigger));
     }
 
     [Fact]

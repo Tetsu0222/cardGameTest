@@ -30,6 +30,10 @@ public enum ActionError
     TargetNotAllowed,
     NoValidTarget,
     ActivationConditionNotMet,
+    ResponsePending,
+    NoResponseWindow,
+    NotATrap,
+    TrapSetThisTurn,
 }
 
 /// <summary>操作の結果。ゲーム上の通常の失敗は例外ではなくこの戻り値で表す。</summary>

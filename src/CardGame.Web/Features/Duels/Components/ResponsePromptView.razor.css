@@ -1,0 +1,42 @@
+.prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    margin: 4px auto;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid #b5179e;
+    animation: appear 0.2s ease-out;
+}
+
+.prompt-text {
+    color: #fff;
+    font-weight: bold;
+}
+
+.prompt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.btn-trap {
+    background: #b5179e;
+    border-color: #6a0f5c;
+    color: #fff;
+}
+
+.btn-trap:hover {
+    background: #8e1280;
+    color: #fff;
+}
+
+@keyframes appear {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}

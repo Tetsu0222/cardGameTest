@@ -19,6 +19,12 @@ public static class CpuActionCommentary
         CpuActivateSpellAction spell when HandCard(cpu, spell.HandIndex) is { } card =>
             new Commentary($"{cpu.Name}は「{card.Name}」を発動{TargetSuffix(spell.Target)}", card),
 
+        CpuSetSpellTrapAction =>
+            new Commentary($"{cpu.Name}は魔法・罠カードをセット"),
+
+        CpuActivateTrapAction trap =>
+            new Commentary($"{cpu.Name}は罠「{trap.Trap.Card.Name}」を発動", trap.Trap.Card),
+
         CpuAttackAction { Target: null } attack =>
             new Commentary($"{cpu.Name}の「{attack.Attacker.Card.Name}」のダイレクトアタック"),
 

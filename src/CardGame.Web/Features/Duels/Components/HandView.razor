@@ -1,20 +1,25 @@
-@* 自分の手札。モンスターには召喚・セット、魔法・罠には発動・セットのボタンを付ける。 *@
+@* 自分の手札。モンスターには召喚・セット、魔法には発動・セット、罠にはセットのボタンを付ける。 *@
 <div class="hand">
     @for (var i = 0; i < Cards.Count; i++)
     {
         var index = i;
         var card = Cards[index];
         var isMonster = card.Kind is CardKind.NormalMonster or CardKind.EffectMonster;
+        var isTrap = card.Kind == CardKind.Trap;
         var primary = new HandAction(index, isMonster ? HandActionKind.Summon : HandActionKind.ActivateSpell);
         var secondary = new HandAction(index, isMonster ? HandActionKind.SetMonster : HandActionKind.SetSpellTrap);
         <div class="hand-card" @key="index">
             <CardView Card="card" Selected="SelectedIndex == index" />
             <div class="hand-actions">
-                <button class="btn btn-sm @(Pending == primary ? "btn-warning" : "btn-primary")"
-                        disabled="@(!CanDo(primary))"
-                        @onclick="() => OnAction.InvokeAsync(primary)">
-                    @(isMonster ? "召喚" : "発動")
-                </button>
+                @* 罠は手札から発動できないため、セットだけを出す *@
+                @if (!isTrap)
+                {
+                    <button class="btn btn-sm @(Pending == primary ? "btn-warning" : "btn-primary")"
+                            disabled="@(!CanDo(primary))"
+                            @onclick="() => OnAction.InvokeAsync(primary)">
+                        @(isMonster ? "召喚" : "発動")
+                    </button>
+                }
                 <button class="btn btn-sm @(Pending == secondary ? "btn-warning" : "btn-secondary")"
                         disabled="@(!CanDo(secondary))"
                         @onclick="() => OnAction.InvokeAsync(secondary)">

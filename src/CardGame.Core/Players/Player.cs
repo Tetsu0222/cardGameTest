@@ -105,17 +105,19 @@ public sealed class Player
     // ---- 魔法・罠ゾーン ----
 
     /// <summary>手札のカードを指定したマスに裏側でセットする。手札の範囲外、またはマスが範囲外・使用中なら null。</summary>
-    public SpellTrapCard? SetSpellTrapFromHand(int handIndex, int slotIndex)
+    /// <param name="setTurn">セットしたターン(罠はこのターンには発動できない)。</param>
+    public SpellTrapCard? SetSpellTrapFromHand(int handIndex, int slotIndex, int setTurn)
     {
         if (!IsSpellTrapSlotEmpty(slotIndex)) return null;
         var card = TakeFromHand(handIndex);
-        return card is null ? null : PlaceSpellTrap(card, slotIndex);
+        return card is null ? null : PlaceSpellTrap(card, slotIndex, setTurn);
     }
 
     /// <summary>カードを指定したマスに裏側で置く(セット処理の内部、および盤面の初期構築用)。マスが範囲外・使用中なら null。</summary>
-    public SpellTrapCard? PlaceSpellTrap(CardData card, int slotIndex)
+    /// <param name="setTurn">セットしたターン。盤面の初期構築では 0(どのターンでも発動できる)。</param>
+    public SpellTrapCard? PlaceSpellTrap(CardData card, int slotIndex, int setTurn = 0)
     {
-        var setCard = new SpellTrapCard(card);
+        var setCard = new SpellTrapCard(card, setTurn);
         return _spellTrapZone.Place(slotIndex, setCard) ? setCard : null;
     }
 

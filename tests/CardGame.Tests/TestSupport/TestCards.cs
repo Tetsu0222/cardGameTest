@@ -20,7 +20,24 @@ internal static class TestCards
     public static CardData DestroyTargetSpell(MonsterSide side = MonsterSide.Opponent) =>
         new(4, "DestroyTargetSpell", CardKind.Spell, Effect: new CardEffect([new DestroyTargetMonsterAction()], side));
 
+    /// <summary>効果を持たない罠(発動できない)。</summary>
     public static CardData Trap() => new(5, "Trap", CardKind.Trap);
+
+    /// <summary>指定したタイミングで発動する罠。</summary>
+    public static CardData Trap(TrapTrigger trigger, params EffectAction[] actions) =>
+        new(6, $"Trap{trigger}", CardKind.Trap, Effect: new CardEffect(actions, Trigger: trigger));
+
+    /// <summary>相手の攻撃宣言時に、攻撃モンスターを破壊する罠。</summary>
+    public static CardData DestroyAttackerTrap() =>
+        Trap(TrapTrigger.OpponentAttackDeclared, new DestroyAttackingMonsterAction());
+
+    /// <summary>相手の攻撃宣言時に、その攻撃を無効にする罠。</summary>
+    public static CardData NegateAttackTrap() =>
+        Trap(TrapTrigger.OpponentAttackDeclared, new NegateAttackAction());
+
+    /// <summary>相手の召喚時に、召喚されたモンスターを破壊する罠。</summary>
+    public static CardData DestroySummonedTrap() =>
+        Trap(TrapTrigger.OpponentMonsterSummoned, new DestroySummonedMonsterAction());
 
     /// <summary>
     /// デッキの水増し用。ドローしても召喚・発動できない(効果のない)魔法カードにして、テスト内容に関与させない。

@@ -1,12 +1,13 @@
 using CardGame.Core.Battle;
 using CardGame.Core.Cards;
+using CardGame.Core.Effects;
 using CardGame.Core.Players;
 using CardGame.Core.Turns;
 
 namespace CardGame.Core.Duels;
 
 /// <summary>
-/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(召喚は Duel.Summons.cs、魔法は Duel.Spells.cs)。
+/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(召喚は Duel.Summons.cs、魔法は Duel.Spells.cs、罠は Duel.Traps.cs)。
 /// 操作が拒否された場合は例外ではなく <see cref="ActionResult"/> で理由を返す。
 /// </summary>
 public sealed partial class Duel
@@ -52,6 +53,7 @@ public sealed partial class Duel
     public ActionResult AdvancePhase()
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
+        if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
 
         if (CurrentPhase == Phase.End)
         {
@@ -76,6 +78,7 @@ public sealed partial class Duel
     public ActionResult CanAttack(FieldMonster attacker, FieldMonster? target)
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
+        if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
         if (CurrentPhase != Phase.Battle) return ActionResult.Fail(ActionError.WrongPhase);
         if (TurnCount == 1) return ActionResult.Fail(ActionError.CannotAttackOnFirstTurn);
         if (!CurrentPlayer.MonsterZone.Contains(attacker)) return ActionResult.Fail(ActionError.AttackerNotOnYourField);
@@ -94,28 +97,45 @@ public sealed partial class Duel
         return ActionResult.Success;
     }
 
+    /// <summary>
+    /// 攻撃を宣言する。相手が発動できる罠を持っていれば <see cref="PendingResponse"/> を開いて戦闘を保留し、
+    /// 相手が罠を発動するか見送った後に戦闘を行う。持っていなければすぐに戦闘を行う。
+    /// </summary>
     /// <param name="target">攻撃対象。null は直接攻撃(相手の場にモンスターがいない場合のみ)。</param>
     public ActionResult Attack(FieldMonster attacker, FieldMonster? target)
     {
         var check = CanAttack(attacker, target);
         if (!check.IsSuccess) return check;
 
-        var attackerOwner = CurrentPlayer;
-        var targetOwner = OpponentPlayer;
         attacker.HasAttacked = true;
 
         if (target is null)
         {
-            _log.Add(DuelLogKind.DirectAttacked, attackerOwner, attacker.Card.Name);
+            _log.Add(DuelLogKind.DirectAttacked, CurrentPlayer, attacker.Card.Name);
         }
         else
         {
             var isFaceDown = target.Position == BattlePosition.FaceDownDefense;
-            _log.Add(DuelLogKind.Attacked, attackerOwner, attacker.Card.Name, isFaceDown ? null : target.Card.Name, isTargetHidden: isFaceDown);
-            if (isFaceDown)
-            {
-                _log.Add(DuelLogKind.Flipped, targetOwner, target.Card.Name);
-            }
+            _log.Add(DuelLogKind.Attacked, CurrentPlayer, attacker.Card.Name, isFaceDown ? null : target.Card.Name, isTargetHidden: isFaceDown);
+        }
+
+        if (!TryOpenResponseWindow(TrapTrigger.OpponentAttackDeclared, attacker, target))
+        {
+            ResolveAttack(attacker, target);
+        }
+
+        return ActionResult.Success;
+    }
+
+    /// <summary>宣言済みの攻撃の戦闘を行う。</summary>
+    private void ResolveAttack(FieldMonster attacker, FieldMonster? target)
+    {
+        var attackerOwner = CurrentPlayer;
+        var targetOwner = OpponentPlayer;
+
+        if (target is { Position: BattlePosition.FaceDownDefense })
+        {
+            _log.Add(DuelLogKind.Flipped, targetOwner, target.Card.Name);
         }
 
         var outcome = ResolveBattle.Execute(attackerOwner, targetOwner, attacker, target);
@@ -126,7 +146,6 @@ public sealed partial class Duel
         if (outcome.DamageToTargetOwner > 0) _log.Add(DuelLogKind.Damaged, targetOwner, amount: outcome.DamageToTargetOwner);
 
         UpdateWinner();
-        return ActionResult.Success;
     }
 
     private static void DrawInitialHand(Player player, int count)
@@ -173,8 +192,10 @@ public sealed partial class Duel
         else if (SecondPlayer.LifePoints <= 0) SetWinner(FirstPlayer);
     }
 
+    /// <summary>勝者を決める。すでに決着がついていれば何もしない(後の処理で勝者が上書きされないように)。</summary>
     private void SetWinner(Player winner)
     {
+        if (IsFinished) return;
         Winner = winner;
         _log.Add(DuelLogKind.Won, winner);
     }

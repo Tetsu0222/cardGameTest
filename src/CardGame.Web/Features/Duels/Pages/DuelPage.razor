@@ -17,18 +17,26 @@
                    IsOpponentField="true"
                    Highlighted="Vm.HighlightedMonsters"
                    IsClickable="Vm.IsMonsterClickable"
-                   OnMonsterClick="Vm.ClickMonster" />
+                   OnMonsterClick="Vm.ClickMonsterAsync" />
 
         <CommentaryView Commentary="Vm.Commentary" />
+
+        @if (Vm.ResponsePrompt is { } prompt)
+        {
+            <ResponsePromptView Prompt="prompt"
+                                Traps="Vm.RespondableTraps"
+                                OnActivate="Vm.RespondWithTrap"
+                                OnPass="Vm.PassResponse" />
+        }
 
         <FieldView Slots="Vm.Human.MonsterSlots"
                    Selected="Vm.SelectedAttacker"
                    Tributes="Vm.PendingTributes"
                    Highlighted="Vm.HighlightedMonsters"
                    IsClickable="Vm.IsMonsterClickable"
-                   OnMonsterClick="Vm.ClickMonster"
+                   OnMonsterClick="Vm.ClickMonsterAsync"
                    IsEmptySlotClickable="Vm.CanPlaceInMonsterSlot"
-                   OnEmptySlotClick="Vm.PlaceInMonsterSlot" />
+                   OnEmptySlotClick="Vm.PlaceInMonsterSlotAsync" />
 
         <SpellTrapZoneView Slots="Vm.Human.SpellTrapSlots"
                            IsCardClickable="Vm.CanActivateSetCard"
@@ -86,7 +94,7 @@
                 }
                 @if (Vm.CanDirectAttack)
                 {
-                    <button class="btn btn-warning" @onclick="Vm.DirectAttack">ダイレクトアタック</button>
+                    <button class="btn btn-warning" @onclick="Vm.DirectAttackAsync">ダイレクトアタック</button>
                 }
                 <button class="btn btn-dark" disabled="@(!Vm.IsHumanTurn)" @onclick="Vm.EndTurnAsync">ターン終了</button>
             </div>
