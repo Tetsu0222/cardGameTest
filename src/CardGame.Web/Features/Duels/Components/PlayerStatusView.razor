@@ -1,7 +1,11 @@
-@* プレイヤーのライフと各領域の枚数。 *@
+@* プレイヤーのライフと各領域の枚数。直前の行動でライフが変わった場合は、その増減も出す。 *@
 <div class="status @(IsCurrent ? "current" : null)">
     <span class="name">@Player.Name</span>
     <span class="life">LP @Player.LifePoints</span>
+    @if (LifeChange is { } change)
+    {
+        <span class="life-change @(change < 0 ? "minus" : "plus")">@(change > 0 ? "+" : "")@change</span>
+    }
     @if (ShowHandCount)
     {
         <span>手札 @Player.Hand.Count</span>
@@ -18,4 +22,7 @@
 
     /// <summary>手札の枚数を表示する(相手用。自分の手札はカードとして見えている)。</summary>
     [Parameter] public bool ShowHandCount { get; set; }
+
+    /// <summary>直前の行動によるライフの増減(減少は負の値)。変化がなければ null。</summary>
+    [Parameter] public int? LifeChange { get; set; }
 }

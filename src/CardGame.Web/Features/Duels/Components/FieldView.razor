@@ -18,6 +18,7 @@
                           Defense="monster.Position != BattlePosition.FaceUpAttack"
                           Label="LabelFor(monster)"
                           Selected="monster == Selected"
+                          Highlighted="Highlighted?.Contains(monster) ?? false"
                           Clickable="IsClickable?.Invoke(monster) ?? false"
                           OnClick="() => OnMonsterClick.InvokeAsync(monster)" />
             }
@@ -33,6 +34,10 @@
     [Parameter] public bool IsOpponentField { get; set; }
 
     [Parameter] public FieldMonster? Selected { get; set; }
+
+    /// <summary>実況中の行動に関わるモンスター(強調表示する)。</summary>
+    [Parameter] public IReadOnlyCollection<FieldMonster>? Highlighted { get; set; }
+
     [Parameter] public Func<FieldMonster, bool>? IsClickable { get; set; }
     [Parameter] public EventCallback<FieldMonster> OnMonsterClick { get; set; }
 

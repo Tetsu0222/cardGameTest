@@ -1,0 +1,39 @@
+using CardGame.AI.Strategies;
+using CardGame.Core.Cards;
+using CardGame.Core.Players;
+
+namespace CardGame.Web.Features.Duels;
+
+/// <summary>CPU がこれから行う1手を、実況の文言にする。実行前(手札にカードが残っている状態)に呼ぶ。</summary>
+public static class CpuActionCommentary
+{
+    /// <returns>実況。フェーズ移動など、実況しない手は null。</returns>
+    public static Commentary? Create(CpuAction action, Player cpu) => action switch
+    {
+        CpuSummonAction { Position: BattlePosition.FaceDownDefense } =>
+            new Commentary($"{cpu.Name}はモンスターをセット"),
+
+        CpuSummonAction summon when HandCard(cpu, summon.HandIndex) is { } card =>
+            new Commentary($"{cpu.Name}は「{card.Name}」を召喚", card),
+
+        CpuActivateSpellAction spell when HandCard(cpu, spell.HandIndex) is { } card =>
+            new Commentary($"{cpu.Name}は「{card.Name}」を発動{TargetSuffix(spell.Target)}", card),
+
+        CpuAttackAction { Target: null } attack =>
+            new Commentary($"{cpu.Name}の「{attack.Attacker.Card.Name}」のダイレクトアタック"),
+
+        CpuAttackAction attack when attack.Target is { } target =>
+            new Commentary($"{cpu.Name}の「{attack.Attacker.Card.Name}」が{MonsterName(target)}に攻撃"),
+
+        _ => null,
+    };
+
+    private static CardData? HandCard(Player cpu, int handIndex) =>
+        handIndex >= 0 && handIndex < cpu.Hand.Count ? cpu.Hand[handIndex] : null;
+
+    private static string TargetSuffix(FieldMonster? target) =>
+        target is null ? "" : $"({MonsterName(target)}を対象)";
+
+    private static string MonsterName(FieldMonster monster) =>
+        monster.Position == BattlePosition.FaceDownDefense ? "裏側守備モンスター" : $"「{monster.Card.Name}」";
+}

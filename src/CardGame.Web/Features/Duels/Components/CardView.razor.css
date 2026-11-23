@@ -88,3 +88,15 @@
     border-radius: 4px;
     background: repeating-linear-gradient(45deg, #5a3a1a, #5a3a1a 6px, #7a5230 6px, #7a5230 12px);
 }
+
+/* 実況中の行動に関わるカード(攻撃するモンスター・攻撃や効果の対象) */
+.card-view.highlighted {
+    box-shadow: 0 0 0 3px #ef233c, 0 0 14px 4px rgba(239, 35, 60, 0.7);
+    animation: highlight-pulse 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes highlight-pulse {
+    to {
+        box-shadow: 0 0 0 3px #ef233c, 0 0 22px 8px rgba(239, 35, 60, 0.4);
+    }
+}

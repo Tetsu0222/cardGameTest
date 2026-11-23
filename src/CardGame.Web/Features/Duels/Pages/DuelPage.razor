@@ -1,23 +1,29 @@
 @page "/"
+@implements IDisposable
 @inject DuelViewModel Vm
 
 <PageTitle>カードゲーム</PageTitle>
 
 <div class="duel">
     <section class="board">
-        <PlayerStatusView Player="Vm.Cpu" IsCurrent="Vm.Duel.CurrentPlayer == Vm.Cpu" ShowHandCount="true" />
+        <PlayerStatusView Player="Vm.Cpu"
+                          IsCurrent="Vm.Duel.CurrentPlayer == Vm.Cpu"
+                          ShowHandCount="true"
+                          LifeChange="Vm.LifeChangeOf(Vm.Cpu)" />
 
         <SpellTrapZoneView Slots="Vm.Cpu.SpellTrapSlots" IsOpponentField="true" />
 
         <FieldView Slots="Vm.Cpu.MonsterSlots"
                    IsOpponentField="true"
+                   Highlighted="Vm.HighlightedMonsters"
                    IsClickable="Vm.IsMonsterClickable"
                    OnMonsterClick="Vm.ClickMonster" />
 
-        <div class="center-line"></div>
+        <CommentaryView Commentary="Vm.Commentary" />
 
         <FieldView Slots="Vm.Human.MonsterSlots"
                    Selected="Vm.SelectedAttacker"
+                   Highlighted="Vm.HighlightedMonsters"
                    IsClickable="Vm.IsMonsterClickable"
                    OnMonsterClick="Vm.ClickMonster"
                    IsEmptySlotClickable="Vm.CanPlaceInMonsterSlot"
@@ -35,7 +41,9 @@
                   SelectedIndex="Vm.SelectedHandIndex"
                   OnAction="Vm.BeginHandAction" />
 
-        <PlayerStatusView Player="Vm.Human" IsCurrent="Vm.Duel.CurrentPlayer == Vm.Human" />
+        <PlayerStatusView Player="Vm.Human"
+                          IsCurrent="Vm.Duel.CurrentPlayer == Vm.Human"
+                          LifeChange="Vm.LifeChangeOf(Vm.Human)" />
     </section>
 
     <aside class="side">
@@ -49,10 +57,16 @@
             }
         </ol>
 
-        @if (Vm.Duel.IsFinished)
+        @if (Vm.Duel.IsFinished && !Vm.IsCpuPlaying)
         {
             <div class="result">@(Vm.Duel.Winner == Vm.Human ? "あなたの勝利!" : "あなたの敗北…")</div>
             <button class="btn btn-primary w-100" @onclick="Vm.StartNewDuel">新しい対戦を始める</button>
+        }
+        else if (Vm.IsCpuPlaying)
+        {
+            <div class="controls">
+                <button class="btn btn-outline-secondary" @onclick="Vm.SkipCpuPlayback">スキップ</button>
+            </div>
         }
         else
         {
@@ -73,7 +87,7 @@
                 {
                     <button class="btn btn-warning" @onclick="Vm.DirectAttack">ダイレクトアタック</button>
                 }
-                <button class="btn btn-dark" disabled="@(!Vm.IsHumanTurn)" @onclick="Vm.EndTurn">ターン終了</button>
+                <button class="btn btn-dark" disabled="@(!Vm.IsHumanTurn)" @onclick="Vm.EndTurnAsync">ターン終了</button>
             </div>
 
             @if (!string.IsNullOrEmpty(Vm.Hint))
@@ -91,3 +105,18 @@
         <DuelLogView Entries="Vm.Duel.Log" />
     </aside>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Vm.OnChange += HandleChange;
+    }
+
+    // CPU のターンの再生中は、ボタン操作の処理が終わる前に途中経過を描画する必要がある
+    private void HandleChange() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Vm.OnChange -= HandleChange;
+    }
+}

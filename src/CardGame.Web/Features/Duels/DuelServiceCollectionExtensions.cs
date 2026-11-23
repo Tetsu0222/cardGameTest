@@ -10,6 +10,7 @@ public static class DuelServiceCollectionExtensions
     public static IServiceCollection AddDuelServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<GameRulesOptions>(configuration.GetSection("GameRules"));
+        services.Configure<DuelViewOptions>(configuration.GetSection("DuelView"));
         services.AddSingleton(new Random());
         services.AddSingleton<SimpleCpuStrategy>();
         services.AddScoped<DuelViewModel>();

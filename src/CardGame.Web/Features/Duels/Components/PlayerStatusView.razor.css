@@ -21,3 +21,25 @@
     font-family: monospace;
     color: #c1121f;
 }
+
+.life-change {
+    font-size: 1.1rem;
+    font-weight: bold;
+    font-family: monospace;
+    animation: pop 0.3s ease-out;
+}
+
+.life-change.minus {
+    color: #d00000;
+}
+
+.life-change.plus {
+    color: #2b9348;
+}
+
+@keyframes pop {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+}

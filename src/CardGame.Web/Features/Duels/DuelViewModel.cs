@@ -18,26 +18,55 @@ namespace CardGame.Web.Features.Duels;
 /// <item>対象を取る魔法: 発動 → <see cref="PendingSpell"/> → 対象のモンスターを選ぶ</item>
 /// <item>攻撃: 自分のモンスター → <see cref="SelectedAttacker"/> → 相手のモンスター(またはダイレクトアタック)</item>
 /// </list>
+/// CPU のターンは1手ずつ「何をするか(実況・強調表示)→ 結果」の順に間を置いて再生し、途中経過を <see cref="OnChange"/> で通知する。
 /// </remarks>
 public sealed class DuelViewModel
 {
     public const string HumanName = "あなた";
     public const string CpuName = "CPU";
 
+    // CPU の1ターンは有限の手数で終わるが、画面が止まらないよう念のため上限を設ける
+    private const int MaxCpuStepsPerTurn = 200;
+
     private readonly GameRulesOptions _rules;
+    private readonly DuelViewOptions _viewOptions;
     private readonly Random _random;
     private readonly SimpleCpuStrategy _cpu;
+    private readonly HashSet<FieldMonster> _highlightedMonsters = [];
+    private readonly Dictionary<Player, int> _lifeChanges = [];
+    private bool _skipCpuPlayback;
 
-    public DuelViewModel(IOptions<GameRulesOptions> rules, Random random, SimpleCpuStrategy cpu)
+    public DuelViewModel(
+        IOptions<GameRulesOptions> rules,
+        IOptions<DuelViewOptions> viewOptions,
+        Random random,
+        SimpleCpuStrategy cpu)
     {
         _rules = rules.Value;
+        _viewOptions = viewOptions.Value;
         _random = random;
         _cpu = cpu;
         Duel = CreateDuel();
         AdvanceHumanToMain1();
+        Commentary = new Commentary("あなたの先攻です");
     }
 
+    /// <summary>
+    /// 画面の再描画が必要になったときの通知。CPU のターンの再生中など、
+    /// ボタン操作の処理が終わる前に途中経過を表示したいときに使う。
+    /// </summary>
+    public event Action? OnChange;
+
     public Duel Duel { get; private set; }
+
+    /// <summary>CPU のターンを再生中か。再生中はプレイヤーの操作を受け付けない。</summary>
+    public bool IsCpuPlaying { get; private set; }
+
+    /// <summary>盤面中央に出す実況。</summary>
+    public Commentary? Commentary { get; private set; }
+
+    /// <summary>実況中の行動に関わるモンスター(攻撃するモンスターと攻撃対象、魔法の対象)。</summary>
+    public IReadOnlyCollection<FieldMonster> HighlightedMonsters => _highlightedMonsters;
     public Player Human => Duel.FirstPlayer;
     public Player Cpu => Duel.SecondPlayer;
 
@@ -53,7 +82,10 @@ public sealed class DuelViewModel
     /// <summary>直前の操作が拒否された理由。</summary>
     public string? ErrorMessage { get; private set; }
 
-    public bool IsHumanTurn => !Duel.IsFinished && Duel.CurrentPlayer == Human;
+    public bool IsHumanTurn => !IsCpuPlaying && !Duel.IsFinished && Duel.CurrentPlayer == Human;
+
+    /// <summary>直前の行動によるライフの増減(減少は負の値)。変化がなければ null。</summary>
+    public int? LifeChangeOf(Player player) => _lifeChanges.TryGetValue(player, out var change) ? change : null;
     public bool HasPendingOperation => PendingPlacement is not null || PendingSpell is not null;
     public bool CanGoToBattle => IsHumanTurn && Duel.CurrentPhase == Phase.Main1 && Duel.TurnCount > 1;
     public bool CanGoToMain2 => IsHumanTurn && Duel.CurrentPhase == Phase.Battle;
@@ -82,10 +114,14 @@ public sealed class DuelViewModel
 
     public void StartNewDuel()
     {
+        if (IsCpuPlaying) return;
         Duel = CreateDuel();
         ClearSelection();
         ErrorMessage = null;
+        _lifeChanges.Clear();
+        _highlightedMonsters.Clear();
         AdvanceHumanToMain1();
+        Commentary = new Commentary("あなたの先攻です");
     }
 
     // ---- 手札の操作 ----
@@ -114,7 +150,7 @@ public sealed class DuelViewModel
         var card = Human.Hand[action.HandIndex];
         if (card.Effect?.TargetSide is null)
         {
-            Apply(Duel.ActivateSpellFromHand(action.HandIndex, target: null));
+            Perform(() => Duel.ActivateSpellFromHand(action.HandIndex, target: null));
             return;
         }
 
@@ -131,7 +167,7 @@ public sealed class DuelViewModel
     {
         if (PendingPlacement is not { Kind: HandActionKind.Summon or HandActionKind.SetMonster } placement) return;
         PendingPlacement = null;
-        Apply(Duel.Summon(placement.HandIndex, ToPosition(placement.Kind), slotIndex));
+        Perform(() => Duel.Summon(placement.HandIndex, ToPosition(placement.Kind), slotIndex));
     }
 
     public bool CanPlaceInSpellTrapSlot(int slotIndex) =>
@@ -142,7 +178,7 @@ public sealed class DuelViewModel
     {
         if (PendingPlacement is not { Kind: HandActionKind.SetSpellTrap } placement) return;
         PendingPlacement = null;
-        Apply(Duel.SetSpellTrap(placement.HandIndex, slotIndex));
+        Perform(() => Duel.SetSpellTrap(placement.HandIndex, slotIndex));
     }
 
     // ---- セットしたカード ----
@@ -159,7 +195,7 @@ public sealed class DuelViewModel
 
         if (setCard.Card.Effect?.TargetSide is null)
         {
-            Apply(Duel.ActivateSetSpell(setCard, target: null));
+            Perform(() => Duel.ActivateSetSpell(setCard, target: null));
             return;
         }
 
@@ -208,28 +244,110 @@ public sealed class DuelViewModel
     {
         if (!IsHumanTurn) return;
         ClearSelection();
-        Apply(Duel.AdvancePhase());
+        Perform(() => Duel.AdvancePhase());
     }
 
-    /// <summary>自分のターンを終え、CPU のターンを実行し、次の自分のメインフェーズ1まで進める。</summary>
-    public void EndTurn()
+    /// <summary>自分のターンを終え、CPU のターンを1手ずつ再生し、次の自分のメインフェーズ1まで進める。</summary>
+    public async Task EndTurnAsync()
     {
         if (!IsHumanTurn) return;
         ClearSelection();
         ErrorMessage = null;
+        _lifeChanges.Clear();
 
-        while (IsHumanTurn)
+        while (!Duel.IsFinished && Duel.CurrentPlayer == Human)
         {
             Duel.AdvancePhase();
         }
 
         if (!Duel.IsFinished)
         {
-            _cpu.PlayTurn(Duel);
+            await PlayCpuTurnAsync();
         }
 
         AdvanceHumanToMain1();
+        if (IsHumanTurn)
+        {
+            Commentary = new Commentary("あなたのターンです");
+        }
+
+        NotifyChanged();
     }
+
+    /// <summary>CPU のターンの残りを待ち時間なしで進める。</summary>
+    public void SkipCpuPlayback() => _skipCpuPlayback = true;
+
+    // ---- CPU のターンの再生 ----
+
+    private async Task PlayCpuTurnAsync()
+    {
+        IsCpuPlaying = true;
+        _skipCpuPlayback = false;
+        try
+        {
+            Commentary = new Commentary($"{CpuName}のターン");
+            await ShowAsync();
+
+            for (var step = 0; step < MaxCpuStepsPerTurn && !Duel.IsFinished && Duel.CurrentPlayer == Cpu; step++)
+            {
+                var action = _cpu.DecideNextAction(Duel);
+                if (action is null) break;
+
+                var commentary = CpuActionCommentary.Create(action, Cpu);
+                if (commentary is null)
+                {
+                    // フェーズ移動など、見せる必要のない手は待たずに進める
+                    SimpleCpuStrategy.Execute(Duel, action);
+                    continue;
+                }
+
+                // 1) これから何をするかを見せる
+                Commentary = commentary;
+                _lifeChanges.Clear();
+                Highlight(action);
+                await ShowAsync();
+
+                // 2) 結果(破壊・ライフの増減)を見せる
+                Perform(() => SimpleCpuStrategy.Execute(Duel, action));
+                ErrorMessage = null; // CPU の手が拒否されても、プレイヤーへのエラーとしては出さない
+                await ShowAsync();
+                _highlightedMonsters.Clear();
+            }
+        }
+        finally
+        {
+            IsCpuPlaying = false;
+            _highlightedMonsters.Clear();
+        }
+    }
+
+    private void Highlight(CpuAction action)
+    {
+        _highlightedMonsters.Clear();
+        switch (action)
+        {
+            case CpuAttackAction attack:
+                _highlightedMonsters.Add(attack.Attacker);
+                if (attack.Target is not null) _highlightedMonsters.Add(attack.Target);
+                break;
+
+            case CpuActivateSpellAction { Target: { } target }:
+                _highlightedMonsters.Add(target);
+                break;
+        }
+    }
+
+    /// <summary>画面に反映し、スキップされていなければ少し待つ。</summary>
+    private async Task ShowAsync()
+    {
+        NotifyChanged();
+        if (!_skipCpuPlayback)
+        {
+            await Task.Delay(_viewOptions.CpuActionDelayMilliseconds);
+        }
+    }
+
+    private void NotifyChanged() => OnChange?.Invoke();
 
     // ---- 内部処理 ----
 
@@ -256,17 +374,16 @@ public sealed class DuelViewModel
     private void ActivatePendingSpell(PendingSpellActivation pending, FieldMonster target)
     {
         PendingSpell = null;
-        Apply(pending.SetCard is not null
+        Perform(() => pending.SetCard is not null
             ? Duel.ActivateSetSpell(pending.SetCard, target)
             : Duel.ActivateSpellFromHand(pending.HandIndex ?? -1, target));
     }
 
     private void Attack(FieldMonster? target)
     {
-        if (SelectedAttacker is null) return;
-        var result = Duel.Attack(SelectedAttacker, target);
+        if (SelectedAttacker is not { } attacker) return;
         SelectedAttacker = null;
-        Apply(result);
+        Perform(() => Duel.Attack(attacker, target));
     }
 
     private Duel CreateDuel()
@@ -292,8 +409,20 @@ public sealed class DuelViewModel
         PendingSpell = null;
     }
 
-    private void Apply(ActionResult result)
+    /// <summary>操作を実行し、ライフの増減と、拒否された場合の理由を記録する。</summary>
+    private void Perform(Func<ActionResult> action)
     {
+        (Player Player, int LifePoints)[] before = [(Human, Human.LifePoints), (Cpu, Cpu.LifePoints)];
+        _lifeChanges.Clear();
+
+        var result = action();
+
+        foreach (var (player, lifePoints) in before)
+        {
+            var change = player.LifePoints - lifePoints;
+            if (change != 0) _lifeChanges[player] = change;
+        }
+
         ErrorMessage = result.IsSuccess ? null : ActionErrorMessages.ToMessage(result.Error);
     }
 }

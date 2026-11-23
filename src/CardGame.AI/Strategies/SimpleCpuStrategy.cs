@@ -7,11 +7,11 @@ using CardGame.Core.Turns;
 namespace CardGame.AI.Strategies;
 
 /// <summary>
-/// 単純なルールベースの CPU。
+/// 単純なルールベースの CPU。盤面を見て「次の1手」を決める。
 /// <list type="bullet">
-/// <item>メインフェーズ1の最初に、損をしない魔法を手札から発動する(全体破壊は相手のモンスターの方が多いときだけ)。対象を取る魔法は、相手の見えているモンスターのうち最も攻撃力の高いものを狙う。</item>
-/// <item>相手の攻撃表示モンスター以上の攻撃力があれば、最も攻撃力の高いモンスターを召喚する。なければ最も守備力の高いモンスターをセットする。</item>
-/// <item>戦闘で一方的に破壊できる相手にだけ攻撃する(相打ちや返り討ちは避ける)。相手の場が空なら直接攻撃する。</item>
+/// <item>メインフェーズ1では、まず損をしない魔法を手札から発動する(全体破壊は相手のモンスターの方が多いときだけ)。対象を取る魔法は、相手の見えているモンスターのうち最も攻撃力の高いものを狙う。</item>
+/// <item>次に、相手の攻撃表示モンスター以上の攻撃力があれば、最も攻撃力の高いモンスターを召喚する。なければ最も守備力の高いモンスターをセットする。</item>
+/// <item>バトルフェーズでは、戦闘で一方的に破壊できる相手にだけ攻撃する(相打ちや返り討ちは避ける)。相手の場が空なら直接攻撃する。</item>
 /// </list>
 /// 裏側守備モンスターの守備力は見えないため、<see cref="AssumedFaceDownDefense"/> と仮定する。
 /// </summary>
@@ -19,49 +19,54 @@ public sealed class SimpleCpuStrategy
 {
     public const int AssumedFaceDownDefense = 1500;
 
-    // ドローで手札が増えて再び発動できることがあるため繰り返すが、念のため上限を設ける
-    private const int MaxSpellActivationsPerTurn = 10;
+    // 1手ごとに盤面が進む(カードを使う・召喚権を使う・攻撃済みになる・フェーズが進む)ため必ず終わるが、念のため上限を設ける
+    private const int MaxStepsPerTurn = 200;
 
-    /// <summary>現在のターンプレイヤーとして1ターンを最後まで行い、相手のターンに渡す。</summary>
+    /// <summary>
+    /// 現在のターンプレイヤーとしての次の1手を決める(盤面は変更しない)。決着がついていれば null。
+    /// </summary>
+    public CpuAction? DecideNextAction(Duel duel)
+    {
+        if (duel.IsFinished) return null;
+
+        CpuAction advance = new CpuAdvancePhaseAction();
+        return duel.CurrentPhase switch
+        {
+            Phase.Main1 => DecideSpell(duel) ?? DecideSummon(duel) ?? advance,
+            Phase.Battle => DecideAttack(duel) ?? advance,
+            _ => advance,
+        };
+    }
+
+    /// <summary>
+    /// 決めた1手を実行する。想定外に拒否された場合は、同じ手を繰り返して止まらないよう次のフェーズへ進める。
+    /// </summary>
+    public static ActionResult Execute(Duel duel, CpuAction action)
+    {
+        var result = action.ExecuteOn(duel);
+        if (!result.IsSuccess)
+        {
+            duel.AdvancePhase();
+        }
+
+        return result;
+    }
+
+    /// <summary>現在のターンプレイヤーとして1ターンを最後まで一気に行い、相手のターンに渡す。</summary>
     public void PlayTurn(Duel duel)
     {
         var me = duel.CurrentPlayer;
-
-        AdvanceTo(duel, me, Phase.Main1);
-        if (!IsStillMyTurn(duel, me)) return;
-        UseSpells(duel);
-        if (!IsStillMyTurn(duel, me)) return;
-        TrySummon(duel);
-
-        AdvanceTo(duel, me, Phase.Battle);
-        if (!IsStillMyTurn(duel, me)) return;
-        AttackWithAll(duel);
-
-        while (IsStillMyTurn(duel, me))
+        for (var step = 0; step < MaxStepsPerTurn && !duel.IsFinished && duel.CurrentPlayer == me; step++)
         {
-            duel.AdvancePhase();
+            var action = DecideNextAction(duel);
+            if (action is null) return;
+            Execute(duel, action);
         }
     }
 
-    private static bool IsStillMyTurn(Duel duel, Player me) => !duel.IsFinished && duel.CurrentPlayer == me;
+    // ---- 魔法 ----
 
-    private static void AdvanceTo(Duel duel, Player me, Phase phase)
-    {
-        while (IsStillMyTurn(duel, me) && duel.CurrentPhase != phase)
-        {
-            duel.AdvancePhase();
-        }
-    }
-
-    private static void UseSpells(Duel duel)
-    {
-        for (var i = 0; i < MaxSpellActivationsPerTurn; i++)
-        {
-            if (duel.IsFinished || !TryActivateOneSpell(duel)) return;
-        }
-    }
-
-    private static bool TryActivateOneSpell(Duel duel)
+    private static CpuAction? DecideSpell(Duel duel)
     {
         var hand = duel.CurrentPlayer.Hand;
         for (var i = 0; i < hand.Count; i++)
@@ -71,13 +76,16 @@ public sealed class SimpleCpuStrategy
             if (!duel.CanActivateSpellFromHand(i).IsSuccess) continue;
             if (!IsWorthActivating(duel, effect)) continue;
 
-            var target = effect.TargetSide is null ? null : ChooseSpellTarget(duel, card);
-            if (effect.TargetSide is not null && target is null) continue;
+            if (effect.TargetSide is null) return new CpuActivateSpellAction(i, Target: null);
 
-            if (duel.ActivateSpellFromHand(i, target).IsSuccess) return true;
+            var target = ChooseSpellTarget(duel, card);
+            if (target is not null && duel.CanActivateSpellFromHand(i, target).IsSuccess)
+            {
+                return new CpuActivateSpellAction(i, target);
+            }
         }
 
-        return false;
+        return null;
     }
 
     private static bool IsWorthActivating(Duel duel, CardEffect effect)
@@ -100,13 +108,15 @@ public sealed class SimpleCpuStrategy
             .Where(t => duel.OpponentPlayer.MonsterZone.Contains(t))
             .MaxBy(t => t.Position == BattlePosition.FaceDownDefense ? 0 : t.Card.Attack);
 
-    private static void TrySummon(Duel duel)
+    // ---- 召喚 ----
+
+    private static CpuAction? DecideSummon(Duel duel)
     {
         var hand = duel.CurrentPlayer.Hand;
         var candidates = Enumerable.Range(0, hand.Count)
             .Where(i => duel.CanSummon(i, BattlePosition.FaceUpAttack).IsSuccess)
             .ToList();
-        if (candidates.Count == 0) return;
+        if (candidates.Count == 0) return null;
 
         var opponentBestAttack = duel.OpponentPlayer.MonsterZone
             .Where(m => m.Position == BattlePosition.FaceUpAttack)
@@ -117,25 +127,22 @@ public sealed class SimpleCpuStrategy
         var strongest = candidates.MaxBy(i => hand[i].Attack);
         if (hand[strongest].Attack >= opponentBestAttack)
         {
-            duel.Summon(strongest, BattlePosition.FaceUpAttack);
-            return;
+            return new CpuSummonAction(strongest, BattlePosition.FaceUpAttack);
         }
 
         var sturdiest = candidates.MaxBy(i => hand[i].Defense);
-        duel.Summon(sturdiest, BattlePosition.FaceDownDefense);
+        return new CpuSummonAction(sturdiest, BattlePosition.FaceDownDefense);
     }
 
-    private static void AttackWithAll(Duel duel)
-    {
-        // 戦闘で場のモンスターが減るため、開始時点の一覧を複製して回す
-        foreach (var attacker in duel.CurrentPlayer.MonsterZone.ToList())
-        {
-            if (duel.IsFinished) return;
+    // ---- 攻撃 ----
 
+    private static CpuAction? DecideAttack(Duel duel)
+    {
+        foreach (var attacker in duel.CurrentPlayer.MonsterZone)
+        {
             if (duel.CanAttack(attacker, target: null).IsSuccess)
             {
-                duel.Attack(attacker, target: null);
-                continue;
+                return new CpuAttackAction(attacker, Target: null);
             }
 
             var target = duel.OpponentPlayer.MonsterZone
@@ -144,9 +151,11 @@ public sealed class SimpleCpuStrategy
 
             if (target is not null)
             {
-                duel.Attack(attacker, target);
+                return new CpuAttackAction(attacker, target);
             }
         }
+
+        return null;
     }
 
     private static bool CanDestroyWithoutLoss(FieldMonster attacker, FieldMonster target)

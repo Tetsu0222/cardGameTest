@@ -1,0 +1,18 @@
+@* 盤面中央の実況。今何が起きているかを、カードとあわせて表示する。 *@
+<div class="commentary">
+    @if (Commentary is not null)
+    {
+        @* 実況が変わるたびに要素を作り直し、表示のアニメーションをやり直す *@
+        <div class="commentary-body" @key="Commentary">
+            @if (Commentary.Card is not null)
+            {
+                <CardView Card="Commentary.Card" />
+            }
+            <div class="commentary-text">@Commentary.Text</div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Commentary? Commentary { get; set; }
+}

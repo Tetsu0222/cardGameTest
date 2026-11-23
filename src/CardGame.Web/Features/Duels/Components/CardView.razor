@@ -37,6 +37,10 @@
     [Parameter] public bool Defense { get; set; }
 
     [Parameter] public bool Selected { get; set; }
+
+    /// <summary>実況中の行動に関わるカードとして強調表示する。</summary>
+    [Parameter] public bool Highlighted { get; set; }
+
     [Parameter] public bool Clickable { get; set; }
 
     /// <summary>カード下部に出す補足(自分のセットカードの「セット中」など)。</summary>
@@ -55,6 +59,7 @@
         Card.Kind switch { CardKind.Spell => "spell", CardKind.Trap => "trap", _ => null },
         Defense ? "defense" : null,
         Selected ? "selected" : null,
+        Highlighted ? "highlighted" : null,
         Clickable ? "clickable" : null,
     }.Where(c => c is not null));
 
