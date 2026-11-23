@@ -1,4 +1,4 @@
-namespace CardGame.Core;
+namespace CardGame.Core.Turns;
 
 /// <summary>ターンのフェーズ(2004年環境: シンクロ導入前)。</summary>
 public enum Phase

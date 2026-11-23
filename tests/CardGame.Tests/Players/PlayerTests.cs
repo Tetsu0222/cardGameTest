@@ -1,14 +1,23 @@
-using CardGame.Core;
+using CardGame.Core.Cards;
+using CardGame.Core.Duels;
+using CardGame.Core.Players;
 
-namespace CardGame.Tests;
+namespace CardGame.Tests.Players;
 
 public class PlayerTests
 {
-    private static Player CreatePlayer(int deckSize)
+    private static Player CreatePlayer(int deckSize, GameRulesOptions? rules = null)
     {
         var deck = Enumerable.Range(1, deckSize)
             .Select(i => new CardData(i, $"Card{i}", CardKind.NormalMonster, 4, 1000, 1000));
-        return new Player("P1", deck);
+        return new Player("P1", deck, rules ?? new GameRulesOptions());
+    }
+
+    [Fact]
+    public void Constructor_SetsLifePoints_FromRules()
+    {
+        var p = CreatePlayer(0, new GameRulesOptions { InitialLifePoints = 4000 });
+        Assert.Equal(4000, p.LifePoints);
     }
 
     [Fact]
@@ -28,10 +37,10 @@ public class PlayerTests
     }
 
     [Fact]
-    public void TakeDamage_NeverGoesBelowZero()
+    public void TakeDamage_NeverGoesBelowZero_WhenDamageExceedsLifePoints()
     {
         var p = CreatePlayer(0);
-        p.TakeDamage(9000);
+        p.TakeDamage(p.LifePoints + 1000);
         Assert.Equal(0, p.LifePoints);
     }
 }

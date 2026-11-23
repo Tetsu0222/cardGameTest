@@ -1,287 +1,325 @@
 # コーディング規約
 
-大規模開発および AI 駆動開発を前提とした、変更に強く文脈が閉じた設計を標準とする。
+C# / .NET 10 / Blazor WebAssembly（スタンドアロン）を前提に、変更に強く文脈が閉じた設計を標準とする。
+大規模開発および AI 駆動開発でも読み違えにくい構成を重視する。
 
 ---
 
 ## 1. 共通原則
 
-### 1-1. Controller にビジネスロジックを書かない
+### 1-1. UI にゲームロジックを書かない
 
-Controller の責務は「入力受け取り → Service 呼び出し → 出力」のみ。
+Razor コンポーネントの責務は「状態の表示 → ユーザー操作の受け取り → ロジック層の呼び出し」のみ。
+ルール判定・ダメージ計算・フェーズ遷移などは `CardGame.Core` に置く。
 
-| 層 | 責務 |
+| プロジェクト | 責務 |
 |---|---|
-| Controller | リクエスト受付・レスポンス整形 |
-| Service | ビジネスロジック |
-| Model / Entity | データ構造・DB アクセス |
+| CardGame.Web | 画面表示・入力受付・DI 登録・ブラウザ API（JS 連携）|
+| CardGame.Core | ゲームルール・ドメインモデル（UI / ブラウザ非依存）|
+| CardGame.AI | 対戦 AI の思考ロジック（Core にのみ依存）|
+| CardGame.Tests | Core / AI のユニットテスト |
 
-**PHP（Laravel）：** ビジネスロジックは Service に寄せる。Fat Model を避ける。  
-**Java（Spring）：** ビジネスロジックは Service に寄せる。Spring 慣習（by-layer）と整合させる。
+**依存方向：** `Web → AI`、`Web → Core`、`AI → Core`、`Tests → Core / AI`（逆方向の参照は禁止）
+（Web は表示のため Core のモデルを直接参照してよい。Core は何にも依存しない。）
 
-### 1-2. バリデーションは config 駆動で共通化
+- `Core` / `AI` は `Microsoft.AspNetCore.*`、`HttpClient`、`IJSRuntime` に依存しない。
+  純粋な C# として `dotnet test` だけで検証できる状態を保つ。
+- コンポーネントの `@code` が数行を超えるロジックを持ち始めたら Core へ移す。
 
-独自定義したバリデーションルールを config に記述し、フレームワークのバリデーション機能から参照する。フレームワーク標準機能（Laravel FormRequest / Spring @Valid）を置き換えるのではなく、補完する形で使う。
+### 1-2. Core は副作用を持たず決定的にする
 
-**PHP（Laravel）：** config にルール定義 → FormRequest が読み込む  
-**Java（Spring）：** application.yml にルール定義 → @Validated / Validator が参照する
+- 乱数（シャッフル等）は `Random` を直接 `new` せず、`Random` / `IRandom` を引数または
+  コンストラクタで受け取る。テストでシード固定できるようにする。
+- 時刻・I/O・ブラウザ API を Core から直接呼ばない。必要ならインターフェースを Core に定義し、
+  実装を Web 側に置く（例：`IGameStorage` を Core に、`LocalStorage` 実装を Web に）。
+
+### 1-3. 不変にできるものは不変にする
+
+- カード定義などの静的データは `record`（`sealed record`）で表現する。
+- 外部から変更させないプロパティは `private set` / `init` / `IReadOnlyList<T>` で公開する。
+  （例：`List<CardData>` をそのまま公開せず、変更は専用メソッド経由にする）
+- `Nullable` は有効（`<Nullable>enable</Nullable>`）。`!`（null 許容抑制）は原則使わない。
 
 ---
 
-## 2. フォルダ構成
+## 2. プロジェクト・フォルダ構成
 
-### 2-1. ユースケース単位でフォルダを切る
+### 2-1. 構成の基本
+
+プロジェクトで大分類し、その中は**機能（ドメイン）単位**でフォルダを切る。
+これ以上深くネストしない。階層が深いほど AI の文脈理解コストが上がる。
 
 ```
-上層: ドメイン名（例: Product / User）
-中層: Controller / Service / Model / Trait（言語慣習に合わせる）
-下層: 実ファイル
-```
-
-これ以上ネストしない。階層が深いほど AI の文脈理解コストが上がる。
-
-**PHP の例：**
-```
-/app
-├── Product
-│   ├── Controller
-│   │   └── /実ファイル群
-│   ├── Service
-│   │   └── /実ファイル群
-│   └── ...etc
-├── Shared (補足1)
-│   ├── Exception
-│   │   └── /実ファイル群
-│   ├── Util
-│   │   └── /実ファイル群
-│   └── ...etc
-├── Model (補足2)
-│   └── Product
-│       └── /実ファイル群
-└── ...etc
-
-/config
-├── app
-│   └── {ドメイン名}.php (/実ファイル群)
-├── app.php (補足3)
-└── ...実ファイル群
-
-/resources
-└── vue
-    └── features
-        ├── Product
-        │   ├── api
-        │   │   └── /実ファイル群(js)
-        │   └── pages
-        │       └── /実ファイル群(vue)
-        └── ...etc
-
-/routes
-├── api
-│   └── {ドメイン名}.php (/実ファイル群)
-├── api.php (補足4)
-├── web.php
-└── console.php
-
-/storage
-└── Product
-    ├── images
-    │   └── {id} (補足5)
-    │       └── /実ファイル群
-    ├── excles
-    │   └── /実ファイル群
-    └── ...etc
-
+/CardGame.slnx
+/docker-compose.yml
+/docs
+/src
+├── CardGame.Core
+│   ├── Cards            (Card, CardData, CardKind ...)
+│   ├── Players          (Player ...)
+│   ├── Turns            (Phase, TurnState ...)
+│   ├── Duels            (Duel, GameState, GameRulesOptions ... 盤面全体の状態と進行)
+│   ├── Battle           (戦闘・ダメージ計算)
+│   ├── Effects (補足5)
+│   └── Shared (補足1)
+├── CardGame.AI
+│   └── Strategies       (対戦 AI の戦略)
+└── CardGame.Web
+    ├── Program.cs
+    ├── App.razor
+    ├── _Imports.razor
+    ├── Layout           (MainLayout, NavMenu)
+    ├── Features (補足2)
+    │   ├── Duel
+    │   │   ├── Pages        (Duel.razor)
+    │   │   ├── Components   (HandView.razor, FieldView.razor)
+    │   │   └── DuelViewModel.cs
+    │   ├── DeckEditor
+    │   │   ├── Pages
+    │   │   └── Components
+    │   └── ...etc
+    ├── Shared               (機能をまたぐ汎用コンポーネント)
+    ├── Services (補足3)
+    └── wwwroot
+        ├── appsettings.json
+        ├── css
+        └── images
+            └── cards
+                └── {cardId}.png (補足4)
+/tests
+└── CardGame.Tests
+    ├── Cards
+    ├── Players
+    └── ...(Core / AI のフォルダ構成と同じ)
 ```
 
 **補足**
-- 1.Shared に入れる条件は 2-3 を参照。
-- 2.Laravel の慣習に合わせて Model は /app/Models に置く。
-    - 中層でドメイン単位にまとめることでユースケースとの関連性を保つ。
-    - coreでDB接続を行うためモデルを必要とするケースは少ないと想定
-- 3.app.phpでドメインごとの config を読み込む。
-    - return ['product' => require __DIR__.'/app/Product.php',];のように明示的な記載を必須とし、自動的に読み込みを行わない。
-        - 自動読み込みだと「どこで読み込まれているか」を推測する必要があり、文脈理解コストが上がる。
-        - 人間にとっても“全体像”が一目で分かる。
-- 4.api.phpでドメインごとの routes を読み込む。
-    - require __DIR__.'/api/Product.php'のように明示的な記載を必須とし、自動的に読み込みを行わない。
-- 5.商品画像などのアップロードファイルは、/storage/Product/images/{id}/ のように、DB の ID をフォルダ名として保存する。
-    - 1レコード＝1フォルダの構造にすることで、ファイル管理がシンプルになる。
+- 1.`Shared` に入れる条件は 2-5 を参照。
+- 2.Web の画面は `Pages/` に平置きせず、機能単位の `Features/{機能名}/` にまとめる。
+    - ページ・専用コンポーネント・ViewModel が同じフォルダに閉じるため、変更範囲が局所化する。
+    - 機能をまたいで使う汎用コンポーネントのみ `Web/Shared/` に置く。
+- 3.`Services` にはブラウザ依存の実装（LocalStorage・HttpClient ラッパー・JS 連携）のみ置く。ゲームルールは置かない。
+- 4.カード画像は ID をファイル名にして `wwwroot/images/cards/{cardId}.png` に置く。1カード＝1ファイルで管理する。
+- 5.`Effects` にはカード効果の実装を置く。1カード効果 = 1クラス（`{カード名}Effect`）とし、
+  カード ID と効果クラスの対応は `CardEffectRegistry` の1箇所で明示的に登録する（リフレクションによる自動収集は行わない。4-3 と同じ理由）。
 
+### 2-2. 名前空間・ファイル配置
 
-**Java（Spring）の例：**
+- 名前空間はフォルダ構成と一致させる（例：`CardGame.Core.Cards`）。
+- 1ファイル = 1つの公開型。ファイル名は型名と一致させる。
+- ファイルスコープ名前空間（`namespace CardGame.Core;`）を使う。
+- 例外として、数行程度の小さな `enum` は、それを主に使う型と同じファイルに置いてよい（例：`CardKind` を `CardData.cs` に置く）。`enum` 以外は例外なし。
+
+### 2-3. Razor コンポーネントの構成
+
+- 1コンポーネント = 1 `.razor`。ロジックが増えたら code-behind（`Xxx.razor.cs`）に `partial class` として分離する。
+- コンポーネント固有のスタイルは CSS isolation（`Xxx.razor.css`）を使う。
+- ファイル名は PascalCase。ページは名詞（`Duel.razor`）、部品は役割が分かる名前（`HandView.razor`）。
+- `@page` のルートは小文字ケバブケース（`/deck-editor`）にする。
+
+### 2-4. ユースケースの粒度基準
+
+ロジックが多い機能は「動詞 + 名詞」のユースケース単位でクラスを分ける。
+
 ```
-/main
-└── /java
-    └── /com.example.project
-        ├── product
-        │   ├── controller
-        │   │   └── /実ファイル群
-        │   ├── service
-        │   │   └── /実ファイル群
-        │   ├── entity
-        │   │   └── /実ファイル群
-        │   ├── repository
-        │   │   └── /実ファイル群
-        │   └── validator
-        │       └── /実ファイル群
-        │
-        ├── inventory
-        │   ├── controller
-        │   │   └── /実ファイル群
-        │   └── service
-        │       └── /実ファイル群
-        │
-        ├── shared (補足1)
-        │   ├── exception
-        │   │   └── /実ファイル群
-        │   ├── util
-        │   │   └── /実ファイル群
-        │   ├── entity (補足2)
-        │   │   └── /実ファイル群
-        │   └── repository (補足2)
-        │       └── /実ファイル群
-        │
-        └── ...etc
-    /Main.java
-    /WebConfig.java
-```
-
-**補足**
-- 1.Shared に入れる条件は 2-3 を参照。
-  - 特定ドメイン固有の Entity・Repository・Validator はそのドメイン配下に置く。
-- 2.Entity / Repository の配置基準：
-  - 複数ドメインで利用される横断的な Entity / Repository → shared 配下に置く
-
-### 2-2. ユースケースの粒度基準
-
-第1層は**ドメイン名（名詞）**、第3層の実ファイルが**ユースケース単位（動詞+名詞）**となる。
-
-**PHP の実例：**
-```
-/Product
-    /Controller
-        ListProductController.php
-        CreateProductController.php
-        UpdateProductController.php
-        DeleteProductController.php
-    /Service
-        ListProductService.php
-        CreateProductService.php
-        UpdateProductService.php
-        DeleteProductService.php
-```
-
-**Java の実例：**
-```
-/product
-    /controller
-        ListProductController.java
-        GetProductController.java
-        CreateProductController.java
-        UpdateProductController.java
-        DeleteProductController.java
-        BulkDeleteProductController.java
-        BulkUpdateStockController.java
-        GetProductStatusController.java
-    /service
-        ListProductService.java
-        GetProductService.java
-        CreateProductService.java
-        UpdateProductService.java
-        DeleteProductService.java
-        BulkDeleteProductService.java
-        BulkUpdateStockService.java
-        GetProductStatusService.java
+/CardGame.Core/Battle
+    ResolveBattle.cs          (戦闘解決)
+    CalculateDamage.cs        (ダメージ計算)
+/CardGame.Core/Turns
+    AdvancePhase.cs
+    DrawCard.cs
 ```
 
 **ルール**
-- 1ファイル = 1ユースケース
-- ファイル名にドメイン名を含める（冗長でもOK）
-    - AI が「Product のサービス」を検索しやすくなる。
-    - フォルダ名にドメイン名があるので、人間も迷わない。
+- 1クラス = 1責務。巨大な `GameManager` / `Utils` を作らない。
+- クラス名・ファイル名にドメイン名を含める（冗長でもOK）。AI が検索しやすくなる。
 
+### 2-5. Shared の扱い
 
-### 2-3. Shared の扱い
-
-複数のユースケースで使う共通処理は `Shared/` にまとめる。
+複数の機能で使う共通処理は `Shared/` にまとめる。
 
 **Shared に入れる条件：**
-- 2つ以上のユースケースで使う
+- 2つ以上の機能で使う
 - ドメインに依存しない
 
 **Shared に入れてはいけないもの：**
 - ドメイン固有のロジック
-- ユースケース固有のルール
-- 特定の集約に依存する処理
+- 特定の機能固有のルール
+- 特定の集約（Player / Duel 等）に依存する処理
 
-**依存方向：** `Shared` → 各ユースケース（逆は禁止）
+**依存方向：** 各機能 → `Shared`（`Shared` から各機能への参照は禁止）
 
 ---
 
-## 3. config 駆動設計
+## 3. コーディングスタイル
 
-### 3-1. config 化すべきもの
+### 3-1. 命名
+
+| 対象 | 規則 | 例 |
+|---|---|---|
+| 型・メソッド・プロパティ・enum 値 | PascalCase | `CardData`, `TakeDamage` |
+| ローカル変数・引数 | camelCase | `lifePoints` |
+| private フィールド | `_camelCase` | `_random` |
+| インターフェース | `I` + PascalCase | `IGameStorage` |
+| 定数 | PascalCase | `InitialLifePoints` |
+| 非同期メソッド | `Async` サフィックス | `LoadDeckAsync` |
+
+### 3-2. 言語機能の使い方
+
+- `var` は型が右辺から明らかな場合のみ。
+- 単純な型は `record`、振る舞いを持つ型は `class`。継承を想定しない型は `sealed`。
+- コレクション式（`[]`）、プライマリコンストラクタ、パターンマッチングなど最新の構文は、可読性が上がる場合に使う。
+- マジックナンバーは定数化する。ゲームバランスに関わる値（初期ライフ等）は定数ではなく 5-2 の設定（`GameRulesOptions`）から受け取る。
+- 例外は「起こり得ない状態」にのみ使う。ゲーム上の通常の失敗（デッキ切れ等）は戻り値で表す。
+
+### 3-3. 非同期
+
+- `async void` は禁止（Razor のイベントハンドラは `async Task`）。
+- `.Result` / `.Wait()` は禁止。WebAssembly はシングルスレッドのためデッドロックや固まりの原因になる。
+- 重い処理（AI の探索など）は UI を固めないよう、一定単位で `await Task.Yield()` を挟むか、処理量を制限する。
+
+---
+
+## 4. Blazor WebAssembly 固有の規約
+
+### 4-1. 状態管理
+
+- 画面をまたぐ状態は DI 登録したサービス（`AddScoped` / `AddSingleton`）で保持する。
+  WebAssembly では Scoped と Singleton は実質同じ寿命だが、意図が伝わるよう「アプリ全体で1つ」なら `Singleton`、そうでなければ `Scoped` を使う。
+- ページ内だけの状態はコンポーネントのフィールドで持つ。
+- 親子間は `[Parameter]` + `EventCallback` で受け渡し、子から親の状態を直接書き換えない。
+- 状態を変更するサービスは `event Action? OnChange` 等で通知し、コンポーネント側で `StateHasChanged()` を呼ぶ。購読は `IDisposable` で必ず解除する。
+
+### 4-2. コンポーネント
+
+- `[Parameter]` は `public` プロパティのみ。必須のものは `[EditorRequired]` を付ける。
+- `[Parameter]` に渡されたオブジェクトをコンポーネント内で変更しない。
+- `@foreach` で描画する要素には `@key` を付ける（カード一覧など並び替えが起こるもの）。
+- 描画のたびに走る処理（`OnParametersSet` や `@code` 内のプロパティ getter）で重い計算をしない。
+- 初期化は `OnInitialized(Async)`、パラメータ依存の処理は `OnParametersSet(Async)` に書く。
+
+### 4-3. DI
+
+- サービスは `Program.cs` で登録し、コンポーネントでは `@inject`、クラスではコンストラクタ注入で受け取る。
+- `Program.cs` の登録は機能ごとに拡張メソッド（`AddDuelServices()` 等）にまとめ、明示的に呼ぶ。自動スキャンによる登録は行わない。
+    - 自動登録だと「どこで登録されているか」を推測する必要があり、文脈理解コストが上がる。
+
+### 4-4. JavaScript 連携
+
+- JS Interop は `Web/Services` の専用ラッパー経由に限定し、コンポーネントから `IJSRuntime` を直接呼ばない。
+- JS 関数は `wwwroot/js/` に ES モジュールとして置き、`IJSObjectReference` で読み込む。グローバル関数を増やさない。
+- JS 側へ渡す・戻す値はシリアライズ可能な単純型にする。
+
+### 4-5. HTTP・外部データ
+
+- `HttpClient` はコンポーネントで直接使わず、`Web/Services` のクライアントクラスにまとめる。
+- API の URL・パスは設定（4-6）から取得し、コード中にハードコードしない。
+- 通信失敗（タイムアウト・404・500）は呼び出し側でハンドリングし、ユーザーに分かる形で表示する。
+
+### 4-6. パフォーマンス・配布サイズ
+
+- 全コードがブラウザにダウンロードされるため、不要な NuGet パッケージは追加しない。
+- リリースビルドでは IL トリミングと AOT の採用可否を検討する（AOT は実行速度が上がるがサイズが増える）。
+- 大きな画像は事前に圧縮し、必要になるまで読み込まない（遅延ロード）。
+
+---
+
+## 5. 設定（config 駆動設計）
+
+### 5-1. 設定の置き場所
+
+- Blazor WASM の設定ファイルは **クライアントに全て公開される**。`wwwroot/appsettings.json` に **秘密情報（API キー・パスワード等）を絶対に置かない**。
+- 環境別の値は `wwwroot/appsettings.{Environment}.json` に置く。
+- 設定は `IConfiguration` を直接読まず、型付きクラスにバインドして `IOptions<T>` で受け取る。
+- `Options` クラス（例：`GameRulesOptions`）は **依存のない素のクラスとして Core に置く**。`IOptions<T>` へのバインドは Web の `Program.cs` のみで行い、Core / AI は `Options` オブジェクトをコンストラクタ引数で受け取る。
+
+```csharp
+builder.Services.Configure<GameRulesOptions>(
+    builder.Configuration.GetSection("GameRules"));
+```
+
+### 5-2. 設定化すべきもの
 
 - 外部 API のエンドポイント
-- バリデーションルール（独自定義分）
-- 権限・ロール定義
+- ゲームバランスの定数・閾値（初期ライフ、初期手札枚数、デッキ枚数の上下限など）
 - 機能フラグ（ON/OFF）
-- 定数・閾値
-- メールテンプレート
+- AI の強さ・パラメータ
 
-### 3-2. 条件付きで config 化してよいもの
+### 5-3. 条件付きで設定化してよいもの
 
-- 分岐条件（if の判定値）
+- 分岐条件の判定値
 - 画面表示の切り替え
-- ワークフローのステップ定義
 
-### 3-3. config 化すべきでないもの
+### 5-4. 設定化すべきでないもの
 
-- ビジネスロジック
+- ゲームルールそのもの（ビジネスロジック）
 - 複雑な計算
-- ドメインルール
+- カード効果の処理
 - モデルの振る舞い
+
+> カードデータ（名前・攻撃力など）は静的データとして `CardData` で定義する。
+> 数が増える場合は JSON として `wwwroot/data/` に置いて読み込んでよいが、効果ロジックは必ずコードで書く。
 
 ---
 
-## 4. テスト規約
+## 6. バリデーション
 
-### 4-1. 環境変数はテストにも明示する
+- ユーザー入力フォームは `EditForm` + `DataAnnotationsValidator` を使い、検証属性（`[Required]` / `[Range]` 等）を入力モデルに付ける。
+- **ゲームルール上の検証**（デッキ枚数・同名カード枚数制限・召喚可否など）は Core に置き、Razor 側に書かない。結果は `ValidationResult` 等の戻り値で UI に返す。
+- 検証に使う閾値は 5-2 の設定から取得する。
 
-新規環境変数を追加したら `phpunit.xml`（PHP）/ `application-test.properties`（Java）に必ずテスト用の値を追記する。テスト内で URL や設定値をハードコードせず、`config()` / `@Value` 経由で取得する。
+---
 
-### 4-2. 異常系テストを書く
+## 7. テスト規約
+
+### 7-1. 基本方針
+
+- テストは xUnit（`[Fact]` / `[Theory]`）で書く。Core と AI は必ずテスト対象にする。
+- テストクラスは対象クラスと対応させる（`Player` → `PlayerTests`）。
+- テストメソッド名は `対象_期待結果_条件`（例：`Draw_ReturnsFalse_WhenDeckEmpty`）。
+- 1テスト = 1つの振る舞いを検証する。Arrange / Act / Assert を意識して書く。
+- 乱数は固定シードまたはテスト用の `IRandom` で決定的にする。
+- テスト内でマジック値を使い回さず、ヘルパー（`CreatePlayer(deckSize)` のようなファクトリ）にまとめる。
+
+### 7-2. 異常系・境界値テストを書く
 
 正常系だけでなく以下を必ずカバーする。
 
-- 外部 API が 500 / 404 を返す場合
-- 必須項目が欠けている場合
-- 不正な値が入力された場合
+- デッキが空・手札が上限など境界の状態
+- ライフポイントが 0 になる・負になる場合
+- 不正な入力（null・範囲外の値）
+- 外部 API が 500 / 404 を返す場合（`HttpClient` を使う機能）
 
-### 4-3. 新規環境変数追加時のチェックリスト
+### 7-3. UI のテスト
 
-- [ ] `docker-compose.yml` の該当サービスに追記
-- [ ] `phpunit.xml` または `application-test.properties` にテスト用値を追記
-- [ ] テストコードが `config()` / `@Value` 経由で値を参照していることを確認
+- Razor コンポーネントのテストが必要な場合は bUnit を使う（導入時は `tests/` に専用プロジェクトを追加する）。
+- ロジックは Core に寄せているため、UI テストは「表示・イベント発火」の確認に絞る。
+
+### 7-4. 実行方法
+
+ローカルに .NET SDK がなくても Docker で実行できる。
+
+```
+docker compose run --rm dotnet dotnet build
+docker compose run --rm dotnet dotnet test
+docker compose up web      # http://localhost:5000
+```
+
+### 7-5. 新規設定値追加時のチェックリスト
+
+- [ ] `wwwroot/appsettings.json` に既定値を追記
+- [ ] 対応する `Options` クラスに型付きプロパティを追加
+- [ ] 機密情報でないことを確認（クライアントに公開される）
+- [ ] テストが `Options` を経由して値を参照していること（値のハードコードをしない）
 
 ---
 
-## 5. 言語・フレームワーク別の補足
+## 8. 禁止事項まとめ
 
-### PHP（Laravel）
-
-- `Model` にロジックを寄せすぎると Fat Model になる → Service に寄せる
-- バリデーションは `FormRequest` を使い Controller をシンプルに保つ
-- 外部 API エンドポイントは `config/services.php` で一元管理する
-
-### Java（Spring）
-
-- Spring は by-layer 構成が慣習 → ユースケース単位で切る場合はパッケージ戦略を最初に決める
-- バリデーションは `@Valid` / `@Validated` を使い Controller に直接書かない
-- 外部設定は `application.yml` または `@ConfigurationProperties` で一元管理する
-
-### React / Vue（フロントエンド）
-
-- API エンドポイントは `src/api/` 配下に集約し、コンポーネントから直接 fetch しない
-- コンポーネントにビジネスロジックを書かない（表示ロジックのみ）
+- Core / AI から Web・ブラウザ API への依存
+- Razor コンポーネントへのゲームルールの記述
+- `async void`、`.Result`、`.Wait()`
+- `appsettings.json` への秘密情報の記載
+- `IJSRuntime` / `HttpClient` のコンポーネントからの直接利用
+- 自動スキャンによる DI 登録
+- `Utils` / `Manager` / `Helper` といった責務の曖昧なクラス
