@@ -1,0 +1,35 @@
+@* 作ったカードの一覧。各カードに編集・削除のボタンを付ける。 *@
+@if (Cards.Count == 0)
+{
+    <div class="empty">まだカードを作っていません。</div>
+}
+else
+{
+    <div class="card-list">
+        @foreach (var card in Cards)
+        {
+            var usedInDeck = IsUsedInDeck(card);
+            <div class="card-item @(card.Id == EditingId ? "editing" : null)" @key="card.Id">
+                <CardView Card="card" Selected="card.Id == EditingId" Label="@(usedInDeck ? "デッキで使用中" : null)" />
+                <div class="card-actions">
+                    <button class="btn btn-sm btn-light" @onclick="() => OnEdit.InvokeAsync(card)">編集</button>
+                    <button class="btn btn-sm btn-outline-light"
+                            disabled="@usedInDeck"
+                            title="@(usedInDeck ? "保存したデッキに入っているため削除できません" : null)"
+                            @onclick="() => OnDelete.InvokeAsync(card)">削除</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyList<CardData> Cards { get; set; }
+    [Parameter, EditorRequired] public required Func<CardData, bool> IsUsedInDeck { get; set; }
+
+    /// <summary>編集中のカードの ID(強調表示する)。</summary>
+    [Parameter] public int? EditingId { get; set; }
+
+    [Parameter] public EventCallback<CardData> OnEdit { get; set; }
+    [Parameter] public EventCallback<CardData> OnDelete { get; set; }
+}

@@ -13,6 +13,9 @@ public enum CardKindFilter
     Monster,
     Spell,
     Trap,
+
+    /// <summary>プレイヤーが作ったカード。</summary>
+    Custom,
 }
 
 /// <summary>
@@ -185,6 +188,7 @@ public sealed class DeckEditorViewModel
         CardKindFilter.Monster => card.Kind is CardKind.NormalMonster or CardKind.EffectMonster,
         CardKindFilter.Spell => card.Kind == CardKind.Spell,
         CardKindFilter.Trap => card.Kind == CardKind.Trap,
+        CardKindFilter.Custom => ValidateCustomCard.IsCustomCardId(card.Id),
         _ => true,
     };
 }

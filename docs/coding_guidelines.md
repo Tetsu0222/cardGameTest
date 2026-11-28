@@ -55,7 +55,7 @@ Razor コンポーネントの責務は「状態の表示 → ユーザー操作
 /docs
 /src
 ├── CardGame.Core
-│   ├── Cards            (CardData, CardCatalog, CardCatalogJson ... カード定義と読み込み)
+│   ├── Cards            (CardData, CardCatalog, CardCatalogJson, ValidateCustomCard ... カード定義・読み込み・カード作成のルール)
 │   ├── Decks            (DeckList, ValidateDeck, IDeckRepository ... デッキの構成・検証・保存先)
 │   ├── Summons          (召喚のルール)
 │   ├── Players          (Player ...)
@@ -77,6 +77,9 @@ Razor コンポーネントの責務は「状態の表示 → ユーザー操作
     │   │   ├── Components   (HandView.razor, FieldView.razor)
     │   │   └── DuelViewModel.cs
     │   ├── DeckEditor
+    │   │   ├── Pages
+    │   │   └── Components
+    │   ├── CardEditor
     │   │   ├── Pages
     │   │   └── Components
     │   └── ...etc
@@ -108,7 +111,7 @@ Razor コンポーネントの責務は「状態の表示 → ユーザー操作
 - 5.`Effects` にはカード効果の仕組みを置く。効果は**部品の組み合わせ**で表す（将来のカード作成機能のため）。
     - 効果部品（`DrawCardsAction`・`DealDamageAction` など、`EffectAction` の派生 record）の**処理はコードで実装する**。
     - カードごとの効果は「どの部品をどの数値で、どの順に並べるか」を `CardEffect` としてデータで定義する。カード専用のクラスは作らない。
-    - 部品を追加するときは、`ResolveCardEffect`（処理）・`ValidateCardEffect`（定義の検証）・`EffectAction` の `JsonDerivedType`（JSON での種類名）・Web の `CardEffectText`（説明文）をセットで更新する。
+    - 部品を追加するときは、`ResolveCardEffect`（処理）・`ValidateCardEffect`（定義の検証）・`EffectAction` の `JsonDerivedType`（JSON での種類名）・Web の `CardEffectText`（説明文）・カード作成画面の `EffectPartType` / `EffectPartDraft` / `EffectPartChoices`（選択肢）をセットで更新する。
     - カードの定義と初期デッキは `wwwroot/data/cards.json` に置く（5-4）。JSON の変換は Core の `CardCatalogJson` で行い、ファイルの取得だけを Web の `Services` で行う。
 
 ### 2-2. 名前空間・ファイル配置

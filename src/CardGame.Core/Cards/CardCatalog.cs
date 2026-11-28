@@ -31,4 +31,8 @@ public sealed class CardCatalog
 
     /// <summary>カード ID からカードを探す。なければ null。</summary>
     public CardData? Find(int cardId) => _cardsById.GetValueOrDefault(cardId);
+
+    /// <summary>カードを加えた新しいカードデータを作る(組み込みのカードに、プレイヤーが作ったカードを足すときなど)。</summary>
+    /// <exception cref="ArgumentException">カード ID が重複する場合。</exception>
+    public CardCatalog WithAdditionalCards(IEnumerable<CardData> cards) => new([.. Cards, .. cards], DefaultDeck);
 }

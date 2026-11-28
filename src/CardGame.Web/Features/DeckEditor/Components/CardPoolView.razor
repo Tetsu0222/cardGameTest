@@ -4,7 +4,10 @@
     {
         var count = CountOf(card);
         <div class="pool-item @(count > 0 ? "in-deck" : null)" @key="card.Id">
-            <CardView Card="card" Clickable="CanAdd(card)" OnClick="() => OnAdd.InvokeAsync(card)" />
+            <CardView Card="card"
+                      Label="@(ValidateCustomCard.IsCustomCardId(card.Id) ? "自作" : null)"
+                      Clickable="CanAdd(card)"
+                      OnClick="() => OnAdd.InvokeAsync(card)" />
             <div class="pool-actions">
                 <button class="btn btn-sm btn-outline-light" disabled="@(!CanRemove(card))" @onclick="() => OnRemove.InvokeAsync(card)">−</button>
                 <span class="pool-count">@count / @MaxCopies</span>

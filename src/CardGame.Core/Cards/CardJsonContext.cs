@@ -17,4 +17,5 @@ internal sealed record CardCatalogFile(IReadOnlyList<CardData> Cards, DeckList D
     WriteIndented = true)]
 [JsonSerializable(typeof(CardCatalogFile))]
 [JsonSerializable(typeof(DeckList))]
+[JsonSerializable(typeof(IReadOnlyList<CardData>))]
 internal sealed partial class CardJsonContext : JsonSerializerContext;

@@ -28,7 +28,10 @@
     </section>
 
     <aside class="deck">
-        <a class="btn btn-sm btn-outline-secondary align-self-start" href="">← 対戦に戻る</a>
+        <div class="nav-links">
+            <a class="btn btn-sm btn-outline-secondary" href="">← 対戦に戻る</a>
+            <a class="btn btn-sm btn-outline-secondary" href="card-editor">カード作成へ</a>
+        </div>
 
         <label class="form-label mb-0">
             デッキ名
@@ -84,5 +87,6 @@
         (CardKindFilter.Monster, "モンスター"),
         (CardKindFilter.Spell, "魔法"),
         (CardKindFilter.Trap, "罠"),
+        (CardKindFilter.Custom, "自作"),
     ];
 }

@@ -1,0 +1,223 @@
+@page "/card-editor"
+@inject CardEditorViewModel Vm
+
+<PageTitle>カード作成 - カードゲーム</PageTitle>
+
+<div class="card-editor">
+    <aside class="list">
+        <div class="list-header">
+            <h5>作ったカード</h5>
+            <button class="btn btn-sm btn-light" @onclick="Vm.StartNew">新しく作る</button>
+        </div>
+        <CustomCardListView Cards="Vm.CustomCards"
+                            EditingId="Vm.Draft.Id"
+                            IsUsedInDeck="Vm.IsUsedInDeck"
+                            OnEdit="Vm.StartEdit"
+                            OnDelete="Vm.DeleteAsync" />
+        <div class="links">
+            <a class="btn btn-sm btn-outline-light" href="">← 対戦に戻る</a>
+            <a class="btn btn-sm btn-outline-light" href="deck-editor">デッキ編集へ</a>
+        </div>
+    </aside>
+
+    <section class="form">
+        <h5>@(Vm.IsEditingExisting ? "カードを編集" : "新しいカード")</h5>
+
+        <div class="field">
+            <span class="field-label">種類</span>
+            <div class="btn-group btn-group-sm" role="group">
+                @foreach (var kind in Kinds)
+                {
+                    <button class="btn @(Vm.Draft.Kind == kind.Value ? "btn-primary" : "btn-outline-primary")"
+                            @key="kind.Value"
+                            @onclick="() => Vm.ChangeKind(kind.Value)">
+                        @kind.Label
+                    </button>
+                }
+            </div>
+        </div>
+
+        <label class="field">
+            <span class="field-label">カード名</span>
+            <input class="form-control form-control-sm" @bind="Vm.Draft.Name" @bind:event="oninput" maxlength="@Vm.Options.MaxNameLength" />
+        </label>
+
+        @if (Vm.Draft.IsMonster)
+        {
+            <div class="stats-row">
+                <label class="field">
+                    <span class="field-label">レベル</span>
+                    <select class="form-select form-select-sm" @bind="Vm.Draft.Level">
+                        @foreach (var level in Vm.Levels)
+                        {
+                            <option value="@level">★@level</option>
+                        }
+                    </select>
+                </label>
+                <label class="field">
+                    <span class="field-label">攻撃力</span>
+                    <select class="form-select form-select-sm" @bind="Vm.Draft.Attack">
+                        @foreach (var value in Vm.Stats)
+                        {
+                            <option value="@value">@value</option>
+                        }
+                    </select>
+                </label>
+                <label class="field">
+                    <span class="field-label">守備力</span>
+                    <select class="form-select form-select-sm" @bind="Vm.Draft.Defense">
+                        @foreach (var value in Vm.Stats)
+                        {
+                            <option value="@value">@value</option>
+                        }
+                    </select>
+                </label>
+            </div>
+            <div class="note">レベル5・6はリリース1体、レベル7以上はリリース2体で召喚します。</div>
+        }
+        else
+        {
+            @if (Vm.Draft.Kind == CardKind.Trap)
+            {
+                <label class="field">
+                    <span class="field-label">発動タイミング</span>
+                    <select class="form-select form-select-sm" value="@Vm.Draft.Trigger" @onchange="ChangeTrigger">
+                        @foreach (var trigger in Enum.GetValues<TrapTrigger>())
+                        {
+                            <option value="@trigger">@EffectPartChoices.Label(trigger)</option>
+                        }
+                    </select>
+                </label>
+            }
+
+            <div class="field">
+                <span class="field-label">効果(上から順に処理します。@(Vm.Options.MaxEffectActions)つまで)</span>
+                @if (Vm.Draft.Parts.Count == 0)
+                {
+                    <div class="note">下から効果を追加してください。</div>
+                }
+                <ol class="parts">
+                    @foreach (var part in Vm.Draft.Parts)
+                    {
+                        <li class="part" @key="part">
+                            <span class="part-label">@EffectPartChoices.Label(part.Type)</span>
+                            @if (EffectPartChoices.HasValue(part.Type))
+                            {
+                                <select class="form-select form-select-sm part-value" @bind="part.Value">
+                                    @foreach (var value in EffectPartChoices.Values(part.Type, Vm.Options))
+                                    {
+                                        <option value="@value">@value@EffectPartChoices.ValueUnit(part.Type)</option>
+                                    }
+                                </select>
+                            }
+                            @if (part.Type == EffectPartType.DestroyAllMonsters)
+                            {
+                                <select class="form-select form-select-sm part-value" @bind="part.Side">
+                                    @foreach (var side in Enum.GetValues<MonsterSide>())
+                                    {
+                                        <option value="@side">@EffectPartChoices.Label(side)の場</option>
+                                    }
+                                </select>
+                                <label class="form-check-label small">
+                                    <input type="checkbox" class="form-check-input" @bind="part.AttackPositionOnly" />
+                                    攻撃表示だけ
+                                </label>
+                            }
+                            <span class="part-buttons">
+                                <button class="btn btn-sm btn-outline-secondary" title="上へ" @onclick="() => Vm.MovePartUp(part)">↑</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => Vm.RemovePart(part)">外す</button>
+                            </span>
+                        </li>
+                    }
+                </ol>
+                <div class="add-part">
+                    <select class="form-select form-select-sm" value="@SelectedPartToAdd" @onchange="SelectPartToAdd" disabled="@(!Vm.CanAddPart)">
+                        @foreach (var type in Vm.AvailableParts)
+                        {
+                            <option value="@type">@EffectPartChoices.Label(type)</option>
+                        }
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary" disabled="@(!Vm.CanAddPart)" @onclick="() => Vm.AddPart(SelectedPartToAdd)">追加</button>
+                </div>
+            </div>
+
+            @if (Vm.Draft.HasTargetPart)
+            {
+                <label class="field">
+                    <span class="field-label">対象にできるモンスター</span>
+                    <select class="form-select form-select-sm" @bind="Vm.Draft.TargetSide">
+                        @foreach (var side in Enum.GetValues<MonsterSide>())
+                        {
+                            <option value="@side">@EffectPartChoices.Label(side)の場</option>
+                        }
+                    </select>
+                </label>
+            }
+        }
+
+        @if (Vm.ErrorMessages.Count > 0)
+        {
+            <ul class="alert alert-warning py-1 mb-0 errors">
+                @foreach (var message in Vm.ErrorMessages)
+                {
+                    <li @key="message">@message</li>
+                }
+            </ul>
+        }
+
+        <div class="actions">
+            <button class="btn btn-primary" disabled="@(!Vm.CanSave)" @onclick="Vm.SaveAsync">
+                @(Vm.IsEditingExisting ? "変更を保存" : "作成する")
+            </button>
+        </div>
+
+        @if (Vm.StatusMessage is not null)
+        {
+            <div class="alert @(Vm.IsStatusError ? "alert-danger" : "alert-success") py-1 mb-0">@Vm.StatusMessage</div>
+        }
+    </section>
+
+    <section class="preview">
+        <h5>プレビュー</h5>
+        <div class="preview-card">
+            <CardView Card="Vm.Preview" />
+        </div>
+        <div class="preview-text">
+            @if (Vm.Preview.Effect is { } effect)
+            {
+                @CardEffectText.Describe(effect)
+            }
+            else if (Vm.Draft.IsMonster)
+            {
+                @($"レベル{Vm.Preview.Level} 攻撃力{Vm.Preview.Attack} / 守備力{Vm.Preview.Defense}")
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    private static readonly (CardKind Value, string Label)[] Kinds =
+    [
+        (CardKind.NormalMonster, "モンスター"),
+        (CardKind.Spell, "魔法"),
+        (CardKind.Trap, "罠"),
+    ];
+
+    private EffectPartType? _partToAdd;
+
+    /// <summary>追加する効果部品の選択。今の種類で選べなくなっていれば、選べるものの先頭にする。</summary>
+    private EffectPartType SelectedPartToAdd =>
+        _partToAdd is { } selected && Vm.AvailableParts.Contains(selected)
+            ? selected
+            : Vm.AvailableParts.FirstOrDefault();
+
+    private void SelectPartToAdd(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<EffectPartType>(e.Value?.ToString(), out var type)) _partToAdd = type;
+    }
+
+    private void ChangeTrigger(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<TrapTrigger>(e.Value?.ToString(), out var trigger)) Vm.ChangeTrigger(trigger);
+    }
+}

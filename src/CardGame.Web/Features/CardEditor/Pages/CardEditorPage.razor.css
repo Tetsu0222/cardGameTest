@@ -1,0 +1,139 @@
+.card-editor {
+    display: grid;
+    grid-template-columns: 300px 1fr 220px;
+    gap: 1rem;
+    align-items: start;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: #2d6a4f;
+}
+
+.list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list-header h5 {
+    color: #fff;
+    margin: 0;
+}
+
+.links {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.field-label {
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.note {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.parts {
+    padding-left: 1.4rem;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.part {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.part-label {
+    min-width: 11em;
+}
+
+.part-value {
+    width: auto;
+}
+
+.part-buttons {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.add-part {
+    display: flex;
+    gap: 6px;
+}
+
+.add-part select {
+    width: auto;
+}
+
+.errors {
+    padding-left: 1.4rem;
+    font-size: 0.85rem;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* プレビューは入力中も見えるように固定する */
+.preview {
+    position: sticky;
+    top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.preview-card {
+    --card-h: 200px;
+    --card-w: 140px;
+    display: flex;
+    justify-content: center;
+}
+
+.preview-text {
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+@media (max-width: 1100px) {
+    .card-editor {
+        grid-template-columns: 1fr;
+    }
+
+    .preview {
+        position: static;
+    }
+}

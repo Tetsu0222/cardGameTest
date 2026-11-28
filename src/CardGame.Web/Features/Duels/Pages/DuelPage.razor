@@ -118,7 +118,10 @@
         @if (!Vm.IsCpuPlaying)
         {
             <div class="side-footer">
-                <a class="btn btn-sm btn-outline-secondary" href="deck-editor">デッキ編集</a>
+                <span class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-secondary" href="deck-editor">デッキ編集</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="card-editor">カード作成</a>
+                </span>
                 @if (!Vm.Duel.IsFinished)
                 {
                     @* デッキを保存した後、今の対戦を最後まで進めなくても新しいデッキで始められるようにする *@

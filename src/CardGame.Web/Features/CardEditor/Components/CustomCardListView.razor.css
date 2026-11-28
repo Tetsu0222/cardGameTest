@@ -1,0 +1,32 @@
+.card-list {
+    --card-h: 120px;
+    --card-w: 84px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+}
+
+.card-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.card-item.editing {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.card-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.empty {
+    color: rgba(255, 255, 255, 0.8);
+    padding: 12px;
+    border: 1px dashed rgba(255, 255, 255, 0.5);
+    border-radius: 6px;
+}
