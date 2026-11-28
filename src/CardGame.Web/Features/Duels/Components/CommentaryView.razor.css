@@ -1,15 +1,18 @@
+/* 実況の有無やカードの有無で盤面の高さが変わらないよう、高さを固定する */
 .commentary {
-    min-height: 64px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-top: 2px dashed rgba(255, 255, 255, 0.4);
     border-bottom: 2px dashed rgba(255, 255, 255, 0.4);
-    margin: 4px 0;
-    padding: 6px;
+    overflow: hidden;
 }
 
+/* 実況に添えるカードは、固定の高さに収まる小さいサイズで表示する */
 .commentary-body {
+    --card-h: 56px;
+    --card-w: 40px;
     display: flex;
     align-items: center;
     gap: 16px;
@@ -17,7 +20,7 @@
 }
 
 .commentary-text {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     font-weight: bold;
     color: #fff;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);

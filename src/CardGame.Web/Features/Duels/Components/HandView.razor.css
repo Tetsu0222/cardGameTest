@@ -1,13 +1,15 @@
+/* 手札は折り返さず1段に並べる(折り返すと盤面が縦に伸びて画面に収まらなくなるため) */
 .hand {
     display: flex;
-    flex-wrap: wrap;
     justify-content: center;
-    gap: 8px;
-    padding: 8px;
-    min-height: 180px;
+    gap: 6px;
+    padding: 4px;
+    min-height: calc(var(--card-h) + 36px);
+    overflow-x: auto;
 }
 
 .hand-card {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: center;

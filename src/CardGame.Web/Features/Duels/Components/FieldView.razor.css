@@ -2,21 +2,21 @@
     display: flex;
     justify-content: center;
     gap: 8px;
-    padding: 8px;
+    padding: 2px 8px;
 }
 
 /* 攻撃表示(縦)・守備表示(横)のどちらでも収まる正方形のマス */
 .slot {
-    width: 140px;
-    height: 140px;
+    width: calc(var(--card-h) + 4px);
+    height: calc(var(--card-h) + 4px);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .empty {
-    width: 96px;
-    height: 136px;
+    width: var(--card-w);
+    height: var(--card-h);
     border: 1px dashed #9aa5b1;
     border-radius: 6px;
 }
@@ -48,5 +48,5 @@
 
 /* 表示形式を変更するボタンの行(ボタンがなくても高さを確保する) */
 .slot-action {
-    height: 30px;
+    height: 28px;
 }

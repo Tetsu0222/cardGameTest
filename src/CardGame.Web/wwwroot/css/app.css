@@ -2,6 +2,17 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+/*
+ * 対戦画面のカードの大きさ。画面の高さに合わせて縮め、スクロールせずに盤面全体が見えるようにする。
+ * 縦に並ぶカードの段は5段(相手の魔法・罠、相手のモンスター、自分のモンスター、自分の魔法・罠、手札)。
+ * それ以外(ライフ表示・実況・ボタン・余白)の高さをおよそ 380px とし、残りを5段で分ける。
+ * 部品の中で --card-h と --card-w を上書きすると、その中のカードだけ大きさを変えられる(実況欄のカードなど)。
+ */
+:root {
+    --card-h: clamp(64px, calc((100dvh - 380px) / 5), 136px);
+    --card-w: calc(var(--card-h) * 0.7);
+}
+
 h1:focus {
     outline: none;
 }
