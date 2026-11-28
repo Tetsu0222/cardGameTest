@@ -114,6 +114,18 @@
 
         <h6 class="mt-3">ログ</h6>
         <DuelLogView Entries="Vm.Duel.Log" />
+
+        @if (!Vm.IsCpuPlaying)
+        {
+            <div class="side-footer">
+                <a class="btn btn-sm btn-outline-secondary" href="deck-editor">デッキ編集</a>
+                @if (!Vm.Duel.IsFinished)
+                {
+                    @* デッキを保存した後、今の対戦を最後まで進めなくても新しいデッキで始められるようにする *@
+                    <button class="btn btn-sm btn-outline-danger" @onclick="Vm.StartNewDuel">対戦をやり直す</button>
+                }
+            </div>
+        }
     </aside>
 </div>
 

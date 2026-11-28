@@ -1,0 +1,90 @@
+{
+  "cards": [
+    { "id": 1, "name": "ブレイズ・ウルフ", "kind": "NormalMonster", "level": 4, "attack": 1800, "defense": 1000 },
+    { "id": 2, "name": "アイアン・ナイト", "kind": "NormalMonster", "level": 4, "attack": 1600, "defense": 1500 },
+    { "id": 3, "name": "ストーン・ガーディアン", "kind": "NormalMonster", "level": 4, "attack": 800, "defense": 2000 },
+    { "id": 4, "name": "スカイ・ハンター", "kind": "NormalMonster", "level": 4, "attack": 1500, "defense": 1200 },
+    { "id": 5, "name": "フォレスト・エルフ", "kind": "NormalMonster", "level": 3, "attack": 1200, "defense": 1400 },
+    { "id": 6, "name": "シャドウ・ラット", "kind": "NormalMonster", "level": 2, "attack": 900, "defense": 600 },
+    { "id": 7, "name": "ゴブリン突撃兵", "kind": "NormalMonster", "level": 3, "attack": 1300, "defense": 700 },
+    { "id": 8, "name": "クリスタル・ゴーレム", "kind": "NormalMonster", "level": 4, "attack": 1400, "defense": 1800 },
+    { "id": 9, "name": "サンダー・バード", "kind": "NormalMonster", "level": 4, "attack": 1700, "defense": 800 },
+    { "id": 10, "name": "アクア・サーペント", "kind": "NormalMonster", "level": 3, "attack": 1100, "defense": 1300 },
+    { "id": 11, "name": "ドラゴン・ナイト", "kind": "NormalMonster", "level": 5, "attack": 2300, "defense": 1800 },
+    { "id": 12, "name": "ギガント・ゴーレム", "kind": "NormalMonster", "level": 6, "attack": 2400, "defense": 2600 },
+    { "id": 13, "name": "エンシェント・ドラゴン", "kind": "NormalMonster", "level": 7, "attack": 2800, "defense": 2400 },
+
+    {
+      "id": 101, "name": "叡智の書", "kind": "Spell",
+      "effect": { "actions": [ { "type": "DrawCards", "count": 2 } ] }
+    },
+    {
+      "id": 102, "name": "火炎弾", "kind": "Spell",
+      "effect": { "actions": [ { "type": "DealDamage", "amount": 600 } ] }
+    },
+    {
+      "id": 103, "name": "癒しの泉", "kind": "Spell",
+      "effect": { "actions": [ { "type": "GainLifePoints", "amount": 1000 } ] }
+    },
+    {
+      "id": 104, "name": "ブレイク・ショット", "kind": "Spell",
+      "effect": { "targetSide": "Opponent", "actions": [ { "type": "DestroyTargetMonster" } ] }
+    },
+    {
+      "id": 105, "name": "虚無の渦", "kind": "Spell",
+      "effect": { "actions": [ { "type": "DestroyAllMonsters", "side": "Both" } ] }
+    },
+    {
+      "id": 106, "name": "炎の書", "kind": "Spell",
+      "effect": { "actions": [ { "type": "DealDamage", "amount": 300 }, { "type": "DrawCards", "count": 1 } ] }
+    },
+
+    {
+      "id": 201, "name": "炸裂の罠", "kind": "Trap",
+      "effect": { "trigger": "OpponentAttackDeclared", "actions": [ { "type": "DestroyAttackingMonster" } ] }
+    },
+    {
+      "id": 202, "name": "聖なる障壁", "kind": "Trap",
+      "effect": {
+        "trigger": "OpponentAttackDeclared",
+        "actions": [ { "type": "DestroyAllMonsters", "side": "Opponent", "attackPositionOnly": true } ]
+      }
+    },
+    {
+      "id": 203, "name": "攻撃封じ", "kind": "Trap",
+      "effect": { "trigger": "OpponentAttackDeclared", "actions": [ { "type": "NegateAttack" } ] }
+    },
+    {
+      "id": 204, "name": "地割れの罠", "kind": "Trap",
+      "effect": { "trigger": "OpponentMonsterSummoned", "actions": [ { "type": "DestroySummonedMonster" } ] }
+    }
+  ],
+  "defaultDeck": {
+    "name": "初期デッキ",
+    "entries": [
+      { "cardId": 1, "count": 3 },
+      { "cardId": 2, "count": 3 },
+      { "cardId": 3, "count": 2 },
+      { "cardId": 4, "count": 3 },
+      { "cardId": 5, "count": 2 },
+      { "cardId": 6, "count": 2 },
+      { "cardId": 7, "count": 2 },
+      { "cardId": 8, "count": 2 },
+      { "cardId": 9, "count": 2 },
+      { "cardId": 10, "count": 2 },
+      { "cardId": 11, "count": 2 },
+      { "cardId": 12, "count": 1 },
+      { "cardId": 13, "count": 1 },
+      { "cardId": 101, "count": 1 },
+      { "cardId": 102, "count": 2 },
+      { "cardId": 103, "count": 1 },
+      { "cardId": 104, "count": 2 },
+      { "cardId": 105, "count": 1 },
+      { "cardId": 106, "count": 1 },
+      { "cardId": 201, "count": 2 },
+      { "cardId": 202, "count": 1 },
+      { "cardId": 203, "count": 1 },
+      { "cardId": 204, "count": 1 }
+    ]
+  }
+}

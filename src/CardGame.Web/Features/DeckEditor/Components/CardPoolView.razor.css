@@ -1,0 +1,34 @@
+/* デッキ編集ではカードの文字を読みやすくするため、対戦画面より大きい固定サイズにする(画面はスクロールしてよい) */
+.pool-grid {
+    --card-h: 150px;
+    --card-w: 105px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.pool-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 4px;
+    border-radius: 8px;
+}
+
+.pool-item.in-deck {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.pool-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pool-count {
+    min-width: 3em;
+    text-align: center;
+    color: #fff;
+    font-family: monospace;
+}

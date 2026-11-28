@@ -151,8 +151,8 @@ public class SimpleCpuStrategyTests
         var random = new Random(1);
         var cpu = new SimpleCpuStrategy();
         var duel = new Duel(
-            new Player("A", ShuffleDeck.Execute(SampleDeck.Create(), random), rules),
-            new Player("B", ShuffleDeck.Execute(SampleDeck.Create(), random), rules),
+            new Player("A", ShuffleDeck.Execute(TestCatalog.DefaultDeckCards(), random), rules),
+            new Player("B", ShuffleDeck.Execute(TestCatalog.DefaultDeckCards(), random), rules),
             rules);
 
         // 両者を CPU に任せ、必ず決着がつく(遅くともデッキ切れで終わる)ことを確認

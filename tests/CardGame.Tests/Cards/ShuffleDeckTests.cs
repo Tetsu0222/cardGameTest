@@ -1,4 +1,5 @@
 using CardGame.Core.Cards;
+using CardGame.Tests.TestSupport;
 
 namespace CardGame.Tests.Cards;
 
@@ -9,7 +10,7 @@ public class ShuffleDeckTests
     [Fact]
     public void Execute_KeepsSameCards()
     {
-        var deck = SampleDeck.Create();
+        var deck = TestCatalog.DefaultDeckCards();
 
         var shuffled = ShuffleDeck.Execute(deck, new Random(Seed));
 
@@ -19,7 +20,7 @@ public class ShuffleDeckTests
     [Fact]
     public void Execute_ReturnsSameOrder_WhenSameSeed()
     {
-        var deck = SampleDeck.Create();
+        var deck = TestCatalog.DefaultDeckCards();
 
         var first = ShuffleDeck.Execute(deck, new Random(Seed));
         var second = ShuffleDeck.Execute(deck, new Random(Seed));
@@ -30,7 +31,7 @@ public class ShuffleDeckTests
     [Fact]
     public void Execute_DoesNotModifyInput()
     {
-        var deck = SampleDeck.Create();
+        var deck = TestCatalog.DefaultDeckCards();
         CardData[] before = [.. deck];
 
         ShuffleDeck.Execute(deck, new Random(Seed));

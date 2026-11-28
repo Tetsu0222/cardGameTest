@@ -1,6 +1,6 @@
 using CardGame.Core.Effects;
 
-namespace CardGame.Web.Features.Duels;
+namespace CardGame.Web.Shared;
 
 /// <summary>カードの効果を画面表示用の説明文に変換する。</summary>
 public static class CardEffectText

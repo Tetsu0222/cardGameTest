@@ -23,4 +23,9 @@
     <ProjectReference Include="..\..\src\CardGame.AI\CardGame.AI.csproj" />
   </ItemGroup>
 
+  <!-- 配布するカードデータそのものを検証・利用するため、Web のファイルを出力先にコピーする -->
+  <ItemGroup>
+    <None Include="..\..\src\CardGame.Web\wwwroot\data\cards.json" Link="Data\cards.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

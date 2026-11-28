@@ -1,0 +1,62 @@
+.deck-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 50vh;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.deck-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto 2.5em auto;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-bottom: 1px solid #f1f3f5;
+    font-size: 0.85rem;
+}
+
+.kind {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    color: #fff;
+}
+
+.kind.monster {
+    background: #b08a2e;
+}
+
+.kind.spell {
+    background: #2a9d8f;
+}
+
+.kind.trap {
+    background: #b5179e;
+}
+
+.name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stats {
+    color: #6c757d;
+    font-family: monospace;
+    font-size: 0.75rem;
+}
+
+.count {
+    text-align: center;
+    font-family: monospace;
+}
+
+.deck-empty {
+    color: #6c757d;
+    padding: 12px;
+    border: 1px dashed #ced4da;
+    border-radius: 6px;
+}

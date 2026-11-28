@@ -1,0 +1,47 @@
+@* 編集中のデッキの中身(カード名・種類・枚数)。 *@
+@if (Entries.Count == 0)
+{
+    <div class="deck-empty">カードが入っていません。左の一覧から追加してください。</div>
+}
+else
+{
+    <ul class="deck-list">
+        @foreach (var entry in Entries)
+        {
+            <li class="deck-row" @key="entry.Card.Id">
+                <span class="kind @KindClass(entry.Card)">@KindText(entry.Card)</span>
+                <span class="name" title="@entry.Card.Name">@entry.Card.Name</span>
+                <span class="stats">@StatsText(entry.Card)</span>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OnRemove.InvokeAsync(entry.Card)">−</button>
+                <span class="count">×@entry.Count</span>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(!CanAdd(entry.Card))" @onclick="() => OnAdd.InvokeAsync(entry.Card)">+</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyList<DeckEntryView> Entries { get; set; }
+    [Parameter, EditorRequired] public required Func<CardData, bool> CanAdd { get; set; }
+    [Parameter] public EventCallback<CardData> OnAdd { get; set; }
+    [Parameter] public EventCallback<CardData> OnRemove { get; set; }
+
+    private static string KindText(CardData card) => card.Kind switch
+    {
+        CardKind.Spell => "魔法",
+        CardKind.Trap => "罠",
+        _ => "モンスター",
+    };
+
+    private static string KindClass(CardData card) => card.Kind switch
+    {
+        CardKind.Spell => "spell",
+        CardKind.Trap => "trap",
+        _ => "monster",
+    };
+
+    private static string StatsText(CardData card) =>
+        card.Kind is CardKind.NormalMonster or CardKind.EffectMonster
+            ? $"★{card.Level} {card.Attack}/{card.Defense}"
+            : "";
+}

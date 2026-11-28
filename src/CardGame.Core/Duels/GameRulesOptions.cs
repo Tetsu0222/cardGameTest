@@ -14,4 +14,13 @@ public sealed class GameRulesOptions
 
     /// <summary>エンドフェーズに持っていられる手札の上限。超えた分は捨てる。</summary>
     public int MaxHandSize { get; init; } = 6;
+
+    /// <summary>デッキの最小枚数。</summary>
+    public int MinDeckSize { get; init; } = 40;
+
+    /// <summary>デッキの最大枚数。</summary>
+    public int MaxDeckSize { get; init; } = 60;
+
+    /// <summary>同じカードをデッキに入れられる最大枚数。</summary>
+    public int MaxCopiesPerCard { get; init; } = 3;
 }

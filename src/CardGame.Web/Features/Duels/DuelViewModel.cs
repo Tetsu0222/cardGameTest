@@ -1,10 +1,12 @@
 using CardGame.AI.Strategies;
 using CardGame.Core.Cards;
+using CardGame.Core.Decks;
 using CardGame.Core.Duels;
 using CardGame.Core.Effects;
 using CardGame.Core.Players;
 using CardGame.Core.Summons;
 using CardGame.Core.Turns;
+using CardGame.Web.Shared;
 using Microsoft.Extensions.Options;
 
 namespace CardGame.Web.Features.Duels;
@@ -34,6 +36,7 @@ public sealed class DuelViewModel
     private readonly GameRulesOptions _rules;
     private readonly DuelViewOptions _viewOptions;
     private readonly Random _random;
+    private readonly GameData _gameData;
     private readonly SimpleCpuStrategy _cpu;
     private readonly HashSet<FieldMonster> _highlightedMonsters = [];
     private readonly List<FieldMonster> _pendingTributes = [];
@@ -45,8 +48,10 @@ public sealed class DuelViewModel
         IOptions<GameRulesOptions> rules,
         IOptions<DuelViewOptions> viewOptions,
         Random random,
-        SimpleCpuStrategy cpu)
+        SimpleCpuStrategy cpu,
+        GameData gameData)
     {
+        _gameData = gameData;
         _rules = rules.Value;
         _viewOptions = viewOptions.Value;
         _random = random;
@@ -603,8 +608,12 @@ public sealed class DuelViewModel
 
     private Duel CreateDuel()
     {
-        var human = new Player(HumanName, ShuffleDeck.Execute(SampleDeck.Create(), _random), _rules);
-        var cpu = new Player(CpuName, ShuffleDeck.Execute(SampleDeck.Create(), _random), _rules);
+        // あなたは保存したデッキ(なければ初期デッキ)、CPU は初期デッキを使う
+        var catalog = _gameData.Catalog;
+        var humanDeck = BuildDeck.Execute(_gameData.PlayerDeck, catalog);
+        var cpuDeck = BuildDeck.Execute(catalog.DefaultDeck, catalog);
+        var human = new Player(HumanName, ShuffleDeck.Execute(humanDeck, _random), _rules);
+        var cpu = new Player(CpuName, ShuffleDeck.Execute(cpuDeck, _random), _rules);
         return new Duel(human, cpu, _rules);
     }
 

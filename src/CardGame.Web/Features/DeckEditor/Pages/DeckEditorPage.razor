@@ -1,0 +1,88 @@
+@page "/deck-editor"
+@inject DeckEditorViewModel Vm
+
+<PageTitle>デッキ編集 - カードゲーム</PageTitle>
+
+<div class="editor">
+    <section class="pool">
+        <div class="pool-header">
+            <h5>カード一覧</h5>
+            <div class="btn-group btn-group-sm" role="group">
+                @foreach (var filter in Filters)
+                {
+                    <button class="btn @(Vm.Filter == filter.Value ? "btn-light" : "btn-outline-light")"
+                            @key="filter.Value"
+                            @onclick="() => Vm.Filter = filter.Value">
+                        @filter.Label
+                    </button>
+                }
+            </div>
+        </div>
+        <CardPoolView Cards="Vm.VisibleCards"
+                      CountOf="Vm.CountOf"
+                      CanAdd="Vm.CanAdd"
+                      CanRemove="Vm.CanRemove"
+                      MaxCopies="Vm.MaxCopiesPerCard"
+                      OnAdd="Vm.Add"
+                      OnRemove="Vm.Remove" />
+    </section>
+
+    <aside class="deck">
+        <a class="btn btn-sm btn-outline-secondary align-self-start" href="">← 対戦に戻る</a>
+
+        <label class="form-label mb-0">
+            デッキ名
+            <input class="form-control form-control-sm" @bind="Vm.DeckName" @bind:event="oninput" maxlength="30" />
+        </label>
+
+        <div class="summary">
+            <span class="total @(Vm.ErrorMessages.Count == 0 ? "ok" : "ng")">@Vm.TotalCount 枚</span>
+            <span class="range">(@Vm.MinDeckSize〜@Vm.MaxDeckSize 枚)</span>
+            <span class="breakdown">
+                モンスター @Vm.CountOfKind(CardKindFilter.Monster) /
+                魔法 @Vm.CountOfKind(CardKindFilter.Spell) /
+                罠 @Vm.CountOfKind(CardKindFilter.Trap)
+            </span>
+        </div>
+
+        @if (Vm.ErrorMessages.Count > 0)
+        {
+            <ul class="alert alert-warning py-1 mb-0 errors">
+                @foreach (var message in Vm.ErrorMessages)
+                {
+                    <li @key="message">@message</li>
+                }
+            </ul>
+        }
+
+        <DeckContentView Entries="Vm.Contents" CanAdd="Vm.CanAdd" OnAdd="Vm.Add" OnRemove="Vm.Remove" />
+
+        <div class="actions">
+            <button class="btn btn-primary" disabled="@(!Vm.CanSave)" @onclick="Vm.SaveAsync">保存</button>
+            <button class="btn btn-outline-secondary" disabled="@(!Vm.IsDirty)" @onclick="Vm.RevertToSaved">保存した内容に戻す</button>
+        </div>
+        <div class="actions">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Vm.LoadDefaultDeck">初期デッキを読み込む</button>
+            <button class="btn btn-sm btn-outline-danger" @onclick="Vm.Clear">すべて外す</button>
+        </div>
+
+        @if (Vm.StatusMessage is not null)
+        {
+            <div class="alert @(Vm.IsStatusError ? "alert-danger" : "alert-success") py-1 mb-0">@Vm.StatusMessage</div>
+        }
+        else if (Vm.IsDirty)
+        {
+            <div class="unsaved">保存していない変更があります。</div>
+        }
+    </aside>
+</div>
+
+@code {
+    private static readonly (CardKindFilter Value, string Label)[] Filters =
+    [
+        (CardKindFilter.All, "すべて"),
+        (CardKindFilter.Monster, "モンスター"),
+        (CardKindFilter.Spell, "魔法"),
+        (CardKindFilter.Trap, "罠"),
+    ];
+}

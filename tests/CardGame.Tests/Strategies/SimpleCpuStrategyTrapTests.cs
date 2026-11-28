@@ -165,8 +165,8 @@ public class SimpleCpuStrategyTrapTests
         var rules = new GameRulesOptions();
         var random = new Random(7);
         var duel = new Duel(
-            new Player("A", ShuffleDeck.Execute(SampleDeck.Create(), random), rules),
-            new Player("B", ShuffleDeck.Execute(SampleDeck.Create(), random), rules),
+            new Player("A", ShuffleDeck.Execute(TestCatalog.DefaultDeckCards(), random), rules),
+            new Player("B", ShuffleDeck.Execute(TestCatalog.DefaultDeckCards(), random), rules),
             rules);
 
         const int maxTurns = 100;
