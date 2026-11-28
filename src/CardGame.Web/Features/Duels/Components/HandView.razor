@@ -1,4 +1,5 @@
-@* 自分の手札。モンスターには召喚・セット、魔法には発動・セット、罠にはセットのボタンを付ける。 *@
+@* 自分の手札。モンスターには召喚・セット、魔法には発動・セット、罠にはセットのボタンを付ける。
+   エンドフェーズで手札が上限を超えているときは、代わりに「捨てる」ボタンだけを出す。 *@
 <div class="hand">
     @for (var i = 0; i < Cards.Count; i++)
     {
@@ -8,23 +9,31 @@
         var isTrap = card.Kind == CardKind.Trap;
         var primary = new HandAction(index, isMonster ? HandActionKind.Summon : HandActionKind.ActivateSpell);
         var secondary = new HandAction(index, isMonster ? HandActionKind.SetMonster : HandActionKind.SetSpellTrap);
+        var discard = new HandAction(index, HandActionKind.Discard);
         <div class="hand-card" @key="index">
             <CardView Card="card" Selected="SelectedIndex == index" />
             <div class="hand-actions">
-                @* 罠は手札から発動できないため、セットだけを出す *@
-                @if (!isTrap)
+                @if (CanDo(discard))
                 {
-                    <button class="btn btn-sm @(Pending == primary ? "btn-warning" : "btn-primary")"
-                            disabled="@(!CanDo(primary))"
-                            @onclick="() => OnAction.InvokeAsync(primary)">
-                        @(isMonster ? "召喚" : "発動")
+                    <button class="btn btn-sm btn-danger" @onclick="() => OnAction.InvokeAsync(discard)">捨てる</button>
+                }
+                else
+                {
+                    @* 罠は手札から発動できないため、セットだけを出す *@
+                    @if (!isTrap)
+                    {
+                        <button class="btn btn-sm @(Pending == primary ? "btn-warning" : "btn-primary")"
+                                disabled="@(!CanDo(primary))"
+                                @onclick="() => OnAction.InvokeAsync(primary)">
+                            @(isMonster ? "召喚" : "発動")
+                        </button>
+                    }
+                    <button class="btn btn-sm @(Pending == secondary ? "btn-warning" : "btn-secondary")"
+                            disabled="@(!CanDo(secondary))"
+                            @onclick="() => OnAction.InvokeAsync(secondary)">
+                        セット
                     </button>
                 }
-                <button class="btn btn-sm @(Pending == secondary ? "btn-warning" : "btn-secondary")"
-                        disabled="@(!CanDo(secondary))"
-                        @onclick="() => OnAction.InvokeAsync(secondary)">
-                    セット
-                </button>
             </div>
         </div>
     }

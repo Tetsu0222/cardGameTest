@@ -7,7 +7,7 @@ using CardGame.Core.Turns;
 namespace CardGame.Core.Duels;
 
 /// <summary>
-/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(召喚は Duel.Summons.cs、表示形式の変更は Duel.Positions.cs、魔法は Duel.Spells.cs、罠は Duel.Traps.cs)。
+/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(召喚は Duel.Summons.cs、表示形式の変更は Duel.Positions.cs、魔法は Duel.Spells.cs、罠は Duel.Traps.cs、手札の上限は Duel.HandLimit.cs)。
 /// 操作が拒否された場合は例外ではなく <see cref="ActionResult"/> で理由を返す。
 /// </summary>
 public sealed partial class Duel
@@ -57,6 +57,8 @@ public sealed partial class Duel
 
         if (CurrentPhase == Phase.End)
         {
+            // 手札が上限を超えていれば、捨て終わるまでターンを終えられない
+            if (RequiredDiscardCount > 0) return ActionResult.Fail(ActionError.MustDiscard);
             EndTurn();
             return ActionResult.Success;
         }

@@ -11,4 +11,7 @@ public sealed class GameRulesOptions
 
     /// <summary>先攻の最初のターンはドローしない。</summary>
     public bool FirstPlayerSkipsFirstDraw { get; init; } = true;
+
+    /// <summary>エンドフェーズに持っていられる手札の上限。超えた分は捨てる。</summary>
+    public int MaxHandSize { get; init; } = 6;
 }

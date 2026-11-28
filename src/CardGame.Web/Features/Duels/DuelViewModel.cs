@@ -114,6 +114,7 @@ public sealed class DuelViewModel
         get
         {
             if (!IsHumanTurn) return "";
+            if (Duel.RequiredDiscardCount > 0) return $"捨てる手札を選んでください(あと{Duel.RequiredDiscardCount}枚)。";
             if (PendingSpell is not null) return $"「{PendingSpell.Card.Name}」の対象にするモンスターを選んでください。";
             if (PendingPlacement is { Kind: HandActionKind.SetSpellTrap }) return "セットするマスを選んでください。";
             if (IsChoosingTributes) return $"リリースするモンスターを選んでください(あと{RequiredTributeCount - _pendingTributes.Count}体)。";
@@ -148,9 +149,15 @@ public sealed class DuelViewModel
     /// 手札の操作を選ぶ。召喚・セットはマスの選択待ちに、対象を取る魔法は対象の選択待ちになる。
     /// 対象を取らない魔法はすぐに発動する。同じ操作をもう一度選ぶと取り消す。
     /// </summary>
-    public void BeginHandAction(HandAction action)
+    public async Task BeginHandActionAsync(HandAction action)
     {
         if (!CanDoHandAction(action)) return;
+
+        if (action.Kind == HandActionKind.Discard)
+        {
+            await DiscardAsync(action.HandIndex);
+            return;
+        }
 
         var wasSelected = PendingPlacement == action || (PendingSpell?.HandIndex == action.HandIndex && action.Kind == HandActionKind.ActivateSpell);
         ClearSelection();
@@ -338,10 +345,18 @@ public sealed class DuelViewModel
 
         while (!Duel.IsFinished && Duel.CurrentPlayer == Human)
         {
-            Duel.AdvancePhase();
+            // 手札が上限を超えていれば、エンドフェーズで止めて捨てるカードを選んでもらう(捨て終わると続きを進める)
+            if (Duel.RequiredDiscardCount > 0)
+            {
+                Commentary = new Commentary($"手札が{_rules.MaxHandSize}枚を超えています");
+                NotifyChanged();
+                return;
+            }
+
+            if (!Duel.AdvancePhase().IsSuccess) break;
         }
 
-        if (!Duel.IsFinished)
+        if (!Duel.IsFinished && Duel.CurrentPlayer == Cpu)
         {
             await PlayCpuTurnAsync();
         }
@@ -353,6 +368,16 @@ public sealed class DuelViewModel
         }
 
         NotifyChanged();
+    }
+
+    /// <summary>手札の上限を超えた分として1枚捨てる。捨て終わったら、ターン終了の続きを進める。</summary>
+    private async Task DiscardAsync(int handIndex)
+    {
+        Perform(() => Duel.Discard(handIndex));
+        if (Duel.RequiredDiscardCount == 0)
+        {
+            await EndTurnAsync();
+        }
     }
 
     /// <summary>CPU のターンの残りを待ち時間なしで進める。</summary>
@@ -537,6 +562,7 @@ public sealed class DuelViewModel
         HandActionKind.Summon or HandActionKind.SetMonster => Duel.CanSummon(action.HandIndex, ToPosition(action.Kind)),
         HandActionKind.ActivateSpell => Duel.CanActivateSpellFromHand(action.HandIndex),
         HandActionKind.SetSpellTrap => Duel.CanSetSpellTrap(action.HandIndex),
+        HandActionKind.Discard => Duel.CanDiscard(action.HandIndex),
         _ => throw new ArgumentOutOfRangeException(nameof(action), action.Kind, "Unknown hand action."),
     };
 

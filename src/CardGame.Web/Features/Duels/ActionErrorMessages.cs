@@ -41,6 +41,8 @@ public static class ActionErrorMessages
         ActionError.MonsterNotOnYourField => "自分の場のモンスターを選んでください。",
         ActionError.SummonedThisTurn => "召喚・セットしたターンには表示形式を変更できません。",
         ActionError.PositionAlreadyChanged => "表示形式の変更は1ターンに1回までです。",
+        ActionError.MustDiscard => "手札が上限を超えています。捨てるカードを選んでください。",
+        ActionError.NoDiscardRequired => "今は手札を捨てる必要はありません。",
         _ => error.ToString(),
     };
 }

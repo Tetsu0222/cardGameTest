@@ -18,6 +18,7 @@ public enum DuelLogKind
     ChangedToAttackPosition,
     ChangedToDefensePosition,
     FlipSummoned,
+    Discarded,
     SpellActivated,
     SpellTrapSet,
     Drew,

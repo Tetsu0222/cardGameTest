@@ -24,6 +24,7 @@ public static class DuelLogFormatter
         DuelLogKind.ChangedToAttackPosition => $"{entry.PlayerName}は「{entry.CardName}」を攻撃表示に変更",
         DuelLogKind.ChangedToDefensePosition => $"{entry.PlayerName}は「{entry.CardName}」を守備表示に変更",
         DuelLogKind.FlipSummoned => $"{entry.PlayerName}は「{entry.CardName}」を反転召喚",
+        DuelLogKind.Discarded => $"{entry.PlayerName}は手札の「{entry.CardName}」を捨てた",
         DuelLogKind.SpellActivated when entry.TargetCardName is not null || entry.IsTargetHidden =>
             $"{entry.PlayerName}は「{entry.CardName}」を発動({TargetText(entry)}を対象)",
         DuelLogKind.SpellActivated => $"{entry.PlayerName}は「{entry.CardName}」を発動",

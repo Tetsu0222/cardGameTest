@@ -18,6 +18,7 @@ namespace CardGame.AI.Strategies;
 /// <item>メインフェーズ2では、相手の攻撃表示モンスターより攻撃力が低く、守備力では耐えられる攻撃表示のモンスターを守備表示にする。</item>
 /// <item>メインフェーズでは、召喚の後に手札の罠をすべてセットする。</item>
 /// <item>バトルフェーズでは、戦闘で一方的に破壊できる相手にだけ攻撃する(相打ちや返り討ちは避ける)。相手の場が空なら直接攻撃する。</item>
+/// <item>エンドフェーズで手札が上限を超えていれば、効果のないカード、攻撃力の低いモンスターの順に捨てる(魔法・罠は残す)。</item>
 /// <item>相手の攻撃宣言・召喚に対しては、破壊する罠を優先して発動する。攻撃を無効にするだけの罠は、その戦闘で損をするときだけ使う。
 /// 召喚されたモンスターを破壊する罠は、攻撃力が <see cref="MinAttackWorthTrapping"/> 以上のときだけ使う。</item>
 /// </list>
@@ -49,6 +50,7 @@ public sealed class SimpleCpuStrategy
             Phase.Main1 => DecideSpell(duel) ?? DecideSummon(duel) ?? DecideOffensivePositionChange(duel) ?? DecideSetTrap(duel) ?? advance,
             Phase.Battle => DecideAttack(duel) ?? advance,
             Phase.Main2 => DecideDefensivePositionChange(duel) ?? DecideSetTrap(duel) ?? advance,
+            Phase.End => DecideDiscard(duel) ?? advance,
             _ => advance,
         };
     }
@@ -171,6 +173,27 @@ public sealed class SimpleCpuStrategy
 
     private static IReadOnlyList<FieldMonster>? NullIfEmpty(IReadOnlyList<FieldMonster> tributes) =>
         tributes.Count == 0 ? null : tributes;
+
+    // ---- 手札の上限 ----
+
+    /// <summary>捨てる価値として、魔法・罠は残し、モンスターは攻撃力の低いものから捨てる。効果のないカードは最優先で捨てる。</summary>
+    private const int KeepValueOfSpellOrTrap = 10_000;
+
+    private static CpuAction? DecideDiscard(Duel duel)
+    {
+        if (duel.RequiredDiscardCount == 0) return null;
+
+        var hand = duel.CurrentPlayer.Hand;
+        var leastValuable = Enumerable.Range(0, hand.Count).MinBy(i => KeepValue(hand[i]));
+        return new CpuDiscardAction(leastValuable);
+    }
+
+    private static int KeepValue(CardData card) => card.Kind switch
+    {
+        CardKind.NormalMonster or CardKind.EffectMonster => card.Attack,
+        _ when card.Effect is null => -1,
+        _ => KeepValueOfSpellOrTrap,
+    };
 
     // ---- 表示形式 ----
 

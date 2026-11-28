@@ -32,6 +32,9 @@ public static class CpuActionCommentary
             _ => new Commentary($"{cpu.Name}は「{change.Monster.Card.Name}」を攻撃表示に変更"),
         },
 
+        CpuDiscardAction discard when HandCard(cpu, discard.HandIndex) is { } card =>
+            new Commentary($"{cpu.Name}は手札の「{card.Name}」を捨てた", card),
+
         CpuAttackAction { Target: null } attack =>
             new Commentary($"{cpu.Name}の「{attack.Attacker.Card.Name}」のダイレクトアタック"),
 

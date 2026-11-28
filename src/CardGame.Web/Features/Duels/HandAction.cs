@@ -13,6 +13,9 @@ public enum HandActionKind
 
     /// <summary>魔法・罠を魔法・罠ゾーンにセットする。</summary>
     SetSpellTrap,
+
+    /// <summary>手札の上限を超えた分として捨てる(エンドフェーズ)。</summary>
+    Discard,
 }
 
 /// <summary>手札のカードに対する操作。</summary>
