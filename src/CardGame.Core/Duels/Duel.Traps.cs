@@ -58,17 +58,20 @@ public sealed partial class Duel
 
         // 罠の効果で決着がついたら、保留していた戦闘は行わない
         UpdateWinner();
-        if (IsFinished) return ActionResult.Success;
-
-        if (outcome.IsAttackNegated)
+        if (!IsFinished)
         {
-            _log.Add(DuelLogKind.AttackNegated, CurrentPlayer, window.TriggerMonster.Card.Name);
-        }
-        else
-        {
-            ContinueAfterResponse(window);
+            if (outcome.IsAttackNegated)
+            {
+                _log.Add(DuelLogKind.AttackNegated, CurrentPlayer, window.TriggerMonster.Card.Name);
+            }
+            else
+            {
+                ContinueAfterResponse(window);
+            }
         }
 
+        // 召喚に応じた罠の場合、召喚成功時・リバースの効果はここで処理する
+        ResolveTriggeredEffects();
         return ActionResult.Success;
     }
 
@@ -79,6 +82,7 @@ public sealed partial class Duel
 
         PendingResponse = null;
         ContinueAfterResponse(window);
+        ResolveTriggeredEffects();
         return ActionResult.Success;
     }
 

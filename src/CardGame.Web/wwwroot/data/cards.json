@@ -15,6 +15,23 @@
     { "id": 13, "name": "エンシェント・ドラゴン", "kind": "NormalMonster", "level": 7, "attack": 2800, "defense": 2400 },
 
     {
+      "id": 51, "name": "キラー・ビートル", "kind": "EffectMonster", "level": 2, "attack": 450, "defense": 600,
+      "effect": { "monsterTrigger": "Flipped", "targetSide": "Both", "actions": [ { "type": "DestroyTargetMonster" } ] }
+    },
+    {
+      "id": 52, "name": "ファイア・スピリット", "kind": "EffectMonster", "level": 3, "attack": 1000, "defense": 800,
+      "effect": { "monsterTrigger": "Summoned", "actions": [ { "type": "DealDamage", "amount": 400 } ] }
+    },
+    {
+      "id": 53, "name": "知恵の梟", "kind": "EffectMonster", "level": 3, "attack": 800, "defense": 1300,
+      "effect": { "monsterTrigger": "Flipped", "actions": [ { "type": "DrawCards", "count": 1 } ] }
+    },
+    {
+      "id": 54, "name": "癒しの妖精", "kind": "EffectMonster", "level": 2, "attack": 500, "defense": 1500,
+      "effect": { "monsterTrigger": "Flipped", "actions": [ { "type": "GainLifePoints", "amount": 1000 } ] }
+    },
+
+    {
       "id": 101, "name": "叡智の書", "kind": "Spell",
       "effect": { "actions": [ { "type": "DrawCards", "count": 2 } ] }
     },
@@ -67,11 +84,12 @@
       { "cardId": 3, "count": 2 },
       { "cardId": 4, "count": 3 },
       { "cardId": 5, "count": 2 },
-      { "cardId": 6, "count": 2 },
-      { "cardId": 7, "count": 2 },
+      { "cardId": 51, "count": 2 },
+      { "cardId": 52, "count": 2 },
       { "cardId": 8, "count": 2 },
       { "cardId": 9, "count": 2 },
-      { "cardId": 10, "count": 2 },
+      { "cardId": 53, "count": 1 },
+      { "cardId": 54, "count": 1 },
       { "cardId": 11, "count": 2 },
       { "cardId": 12, "count": 1 },
       { "cardId": 13, "count": 1 },

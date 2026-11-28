@@ -33,9 +33,38 @@ public class ValidateCardDataTests
     }
 
     [Fact]
-    public void Execute_RejectsEffectMonster_UntilSupported()
+    public void Execute_RejectsEffectMonster_WithoutEffectOrTrigger()
     {
         Assert.False(ValidateCardData.Execute(new CardData(1, "M", CardKind.EffectMonster, 4)));
+        Assert.False(ValidateCardData.Execute(new CardData(1, "M", CardKind.EffectMonster, 4, Effect: DamageEffect)));
+    }
+
+    [Theory]
+    [InlineData(MonsterEffectTrigger.Flipped)]
+    [InlineData(MonsterEffectTrigger.Summoned)]
+    public void Execute_AcceptsEffectMonster_WithMonsterTrigger(MonsterEffectTrigger trigger)
+    {
+        var effect = new CardEffect([new DealDamageAction(500)], MonsterTrigger: trigger);
+
+        Assert.True(ValidateCardData.Execute(new CardData(1, "M", CardKind.EffectMonster, 4, 1000, 1000, effect)));
+    }
+
+    [Fact]
+    public void Execute_RejectsEffectMonster_WithTrapTrigger()
+    {
+        var effect = new CardEffect([new DealDamageAction(500)], Trigger: TrapTrigger.OpponentAttackDeclared, MonsterTrigger: MonsterEffectTrigger.Flipped);
+
+        Assert.False(ValidateCardData.Execute(new CardData(1, "M", CardKind.EffectMonster, 4, Effect: effect)));
+    }
+
+    [Fact]
+    public void Execute_RejectsSpellAndTrap_WithMonsterTrigger()
+    {
+        var spellEffect = new CardEffect([new DealDamageAction(500)], MonsterTrigger: MonsterEffectTrigger.Summoned);
+        var trapEffect = AttackTrapEffect with { MonsterTrigger = MonsterEffectTrigger.Summoned };
+
+        Assert.False(ValidateCardData.Execute(new CardData(1, "S", CardKind.Spell, Effect: spellEffect)));
+        Assert.False(ValidateCardData.Execute(new CardData(1, "T", CardKind.Trap, Effect: trapEffect)));
     }
 
     [Fact]

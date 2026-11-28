@@ -19,6 +19,7 @@ namespace CardGame.AI.Strategies;
 /// <item>メインフェーズでは、召喚の後に手札の罠をすべてセットする。</item>
 /// <item>バトルフェーズでは、戦闘で一方的に破壊できる相手にだけ攻撃する(相打ちや返り討ちは避ける)。相手の場が空なら直接攻撃する。</item>
 /// <item>エンドフェーズで手札が上限を超えていれば、効果のないカード、攻撃力の低いモンスターの順に捨てる(魔法・罠は残す)。</item>
+/// <item>効果モンスター: リバース効果を持つモンスターはセットを優先し、効果が役立つ場面で反転召喚する。効果の対象は、相手の見えているモンスターのうち最も攻撃力の高いものを選ぶ(相手側にいなければ自分の最も弱いもの)。</item>
 /// <item>相手の攻撃宣言・召喚に対しては、破壊する罠を優先して発動する。攻撃を無効にするだけの罠は、その戦闘で損をするときだけ使う。
 /// 召喚されたモンスターを破壊する罠は、攻撃力が <see cref="MinAttackWorthTrapping"/> 以上のときだけ使う。</item>
 /// </list>
@@ -42,6 +43,7 @@ public sealed class SimpleCpuStrategy
     public CpuAction? DecideNextAction(Duel duel)
     {
         if (duel.IsFinished) return null;
+        if (duel.PendingEffectTarget is { } pending) return DecideEffectTarget(duel, pending);
         if (duel.PendingResponse is { } window) return DecideResponse(duel, window);
 
         CpuAction advance = new CpuAdvancePhaseAction();
@@ -57,14 +59,18 @@ public sealed class SimpleCpuStrategy
 
     /// <summary>
     /// 決めた1手を実行する。想定外に拒否された場合は、同じ手を繰り返して止まらないよう先へ進める
-    /// (罠の機会が開いていれば見送り、そうでなければ次のフェーズへ進む)。
+    /// (効果の対象を待っていれば最初の候補を選び、罠の機会が開いていれば見送り、どちらでもなければ次のフェーズへ進む)。
     /// </summary>
     public static ActionResult Execute(Duel duel, CpuAction action)
     {
         var result = action.ExecuteOn(duel);
         if (!result.IsSuccess)
         {
-            if (duel.PendingResponse is not null)
+            if (duel.PendingEffectTarget is not null && duel.FindEffectTargetChoices() is [var first, ..])
+            {
+                duel.ChooseEffectTarget(first);
+            }
+            else if (duel.PendingResponse is not null)
             {
                 duel.PassResponse();
             }
@@ -157,7 +163,8 @@ public sealed class SimpleCpuStrategy
         var withoutTribute = candidates.Where(c => c.Tributes.Count == 0).ToList();
         if (withoutTribute.Count == 0) return null;
 
-        var sturdiest = withoutTribute.MaxBy(c => c.Card.Defense);
+        // リバース効果を持つモンスターは、セットしておけば攻撃されたときにも効果が発動するため優先する
+        var sturdiest = withoutTribute.MaxBy(c => (HasMonsterTrigger(c.Card, MonsterEffectTrigger.Flipped) ? 1 : 0, c.Card.Defense));
         return new CpuSummonAction(sturdiest.HandIndex, BattlePosition.FaceDownDefense);
     }
 
@@ -195,6 +202,40 @@ public sealed class SimpleCpuStrategy
         _ => KeepValueOfSpellOrTrap,
     };
 
+    // ---- 効果モンスター ----
+
+    /// <summary>
+    /// 効果の対象を選ぶ。効果を持つ側から見て、相手の見えているモンスターのうち攻撃力が最も高いもの、
+    /// 相手側に候補がなければ自分の最も攻撃力の低いものを選ぶ(今ある対象の効果は破壊のため)。
+    /// </summary>
+    private static CpuAction DecideEffectTarget(Duel duel, PendingMonsterEffect pending)
+    {
+        var choices = duel.FindEffectTargetChoices();
+        var opponentChoices = choices.Where(t => !pending.Controller.MonsterZone.Contains(t)).ToList();
+
+        var target = opponentChoices.Count > 0
+            ? opponentChoices.MaxBy(t => t.Position == BattlePosition.FaceDownDefense ? 0 : t.Card.Attack)
+            : choices.MinBy(t => t.Card.Attack);
+
+        // 候補がない状態で対象を待つことはない(対象がいなければ効果は発動しない)が、念のため最初の候補を渡す
+        return new CpuChooseEffectTargetAction(target ?? choices[0]);
+    }
+
+    private static bool HasMonsterTrigger(CardData card, MonsterEffectTrigger trigger) =>
+        card is { Kind: CardKind.EffectMonster, Effect.MonsterTrigger: { } t } && t == trigger;
+
+    /// <summary>反転召喚してリバース効果を使う価値があるか。</summary>
+    private static bool IsFlipEffectWorthUsing(Duel duel, CardData card)
+    {
+        if (!HasMonsterTrigger(card, MonsterEffectTrigger.Flipped) || card.Effect is not { } effect) return false;
+
+        // 対象を取る効果は、相手の場に対象がいるときだけ使う
+        if (effect.TargetSide is MonsterSide.Opponent or MonsterSide.Both && duel.OpponentPlayer.MonsterZone.Count == 0) return false;
+        if (effect.TargetSide is MonsterSide.Own) return false;
+
+        return IsWorthActivating(duel, effect);
+    }
+
     // ---- 表示形式 ----
 
     /// <summary>攻撃に回せる守備表示・裏側守備表示のモンスターを攻撃表示にする(裏側は反転召喚)。</summary>
@@ -203,7 +244,8 @@ public sealed class SimpleCpuStrategy
         var opponentBestAttack = OpponentBestAttack(duel);
         var monster = duel.CurrentPlayer.MonsterZone
             .Where(m => m.Position != BattlePosition.FaceUpAttack && duel.CanChangePosition(m).IsSuccess)
-            .Where(m => m.Card.Attack >= opponentBestAttack && CanAttackProfitably(duel, m.Card.Attack))
+            .Where(m => (m.Card.Attack >= opponentBestAttack && CanAttackProfitably(duel, m.Card.Attack))
+                        || (m.Position == BattlePosition.FaceDownDefense && IsFlipEffectWorthUsing(duel, m.Card)))
             .MaxBy(m => m.Card.Attack);
 
         return monster is null ? null : new CpuChangePositionAction(monster);

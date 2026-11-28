@@ -77,3 +77,14 @@
     justify-content: space-between;
     gap: 8px;
 }
+
+/* 効果モンスターの効果の対象を選ぶよう促す表示(対象にできるモンスターは青枠で光る) */
+.target-prompt {
+    margin: 4px auto;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 2px solid #3a86ff;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-weight: bold;
+}

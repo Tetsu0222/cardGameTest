@@ -9,6 +9,15 @@ internal static class TestCards
     public static CardData Monster(int attack = 1000, int defense = 1000, int level = 4) =>
         new(1, $"Monster{attack}/{defense}", CardKind.NormalMonster, level, attack, defense);
 
+    /// <summary>効果モンスター(対象を取らない効果)。</summary>
+    public static CardData EffectMonster(MonsterEffectTrigger trigger, int attack = 500, int defense = 500, params EffectAction[] actions) =>
+        new(7, $"EffectMonster{trigger}", CardKind.EffectMonster, 3, attack, defense, new CardEffect(actions, MonsterTrigger: trigger));
+
+    /// <summary>リバース: モンスター1体を対象として破壊する効果モンスター。</summary>
+    public static CardData FlipDestroyMonster(MonsterSide side = MonsterSide.Both, int defense = 600) =>
+        new(8, "FlipDestroyMonster", CardKind.EffectMonster, 2, 450, defense,
+            new CardEffect([new DestroyTargetMonsterAction()], side, MonsterTrigger: MonsterEffectTrigger.Flipped));
+
     /// <summary>効果を持たない魔法(発動できない)。</summary>
     public static CardData Spell() => new(2, "Spell", CardKind.Spell);
 

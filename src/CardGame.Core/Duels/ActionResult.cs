@@ -34,6 +34,8 @@ public enum ActionError
     NoResponseWindow,
     NotATrap,
     TrapSetThisTurn,
+    EffectTargetPending,
+    NoPendingEffect,
     MonsterNotOnYourField,
     SummonedThisTurn,
     PositionAlreadyChanged,

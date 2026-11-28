@@ -1,4 +1,5 @@
-@* 1枚のカード。手札・場の両方で使う。モンスターは星とATK/DEF、魔法・罠は種類と効果を表示する。 *@
+@* 1枚のカード。手札・場の両方で使う。モンスターは星とATK/DEF(効果モンスターは【効果】の印も)、魔法・罠は種類と効果を表示する。
+   効果モンスターの効果の文章は、カードに収まらないためマウスを重ねたときの説明に出す。 *@
 <div class="card-view @CssClass" @onclick="HandleClick" title="@Tooltip">
     @if (Hidden)
     {
@@ -10,6 +11,10 @@
         @if (IsMonster)
         {
             <div class="card-level">@(new string('★', Card.Level))</div>
+            @if (Card.Kind == CardKind.EffectMonster)
+            {
+                <div class="card-kind">【効果】</div>
+            }
             <div class="card-stats">
                 <span>ATK @Card.Attack</span>
                 <span>DEF @Card.Defense</span>
@@ -56,7 +61,7 @@
 
     private string CssClass => string.Join(' ', new[]
     {
-        Card.Kind switch { CardKind.Spell => "spell", CardKind.Trap => "trap", _ => null },
+        Card.Kind switch { CardKind.Spell => "spell", CardKind.Trap => "trap", CardKind.EffectMonster => "effect-monster", _ => null },
         Defense ? "defense" : null,
         Selected ? "selected" : null,
         Highlighted ? "highlighted" : null,
@@ -64,7 +69,7 @@
     }.Where(c => c is not null));
 
     private string? Tooltip => Hidden ? null
-        : IsMonster ? $"{Card.Name} Lv{Card.Level} ATK {Card.Attack} / DEF {Card.Defense}"
+        : IsMonster ? $"{Card.Name} Lv{Card.Level} ATK {Card.Attack} / DEF {Card.Defense}" + (Card.Effect is null ? "" : $" {EffectText}")
         : $"{Card.Name} {KindText}{EffectText}";
 
     private async Task HandleClick()

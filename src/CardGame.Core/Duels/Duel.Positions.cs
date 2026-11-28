@@ -19,6 +19,7 @@ public sealed partial class Duel
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
         if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
+        if (PendingEffectTarget is not null) return ActionResult.Fail(ActionError.EffectTargetPending);
         if (CurrentPhase is not (Phase.Main1 or Phase.Main2)) return ActionResult.Fail(ActionError.WrongPhase);
         if (!CurrentPlayer.MonsterZone.Contains(monster)) return ActionResult.Fail(ActionError.MonsterNotOnYourField);
         if (monster.SummonedTurn >= TurnCount) return ActionResult.Fail(ActionError.SummonedThisTurn);
@@ -52,7 +53,12 @@ public sealed partial class Duel
             case BattlePosition.FaceDownDefense:
                 monster.Position = BattlePosition.FaceUpAttack;
                 _log.Add(DuelLogKind.FlipSummoned, CurrentPlayer, monster.Card.Name);
-                TryOpenResponseWindow(TrapTrigger.OpponentMonsterSummoned, monster, attackTarget: null);
+                TriggerMonsterEffect(monster, CurrentPlayer, MonsterEffectTrigger.Flipped);
+                if (!TryOpenResponseWindow(TrapTrigger.OpponentMonsterSummoned, monster, attackTarget: null))
+                {
+                    ResolveTriggeredEffects();
+                }
+
                 break;
         }
 

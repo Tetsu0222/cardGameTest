@@ -21,18 +21,25 @@ public sealed class CardDraft
     /// <summary>罠の発動タイミング。</summary>
     public TrapTrigger Trigger { get; set; } = TrapTrigger.OpponentAttackDeclared;
 
+    /// <summary>効果モンスターの効果の発動タイミング。</summary>
+    public MonsterEffectTrigger MonsterTrigger { get; set; } = MonsterEffectTrigger.Flipped;
+
     /// <summary>対象を取る部品があるときの、対象にできる側。</summary>
     public MonsterSide TargetSide { get; set; } = MonsterSide.Opponent;
 
     public List<EffectPartDraft> Parts { get; } = [];
 
-    public bool IsMonster => Kind == CardKind.NormalMonster;
+    /// <summary>レベル・攻撃力・守備力を持つか(通常モンスター・効果モンスター)。</summary>
+    public bool IsMonster => Kind is CardKind.NormalMonster or CardKind.EffectMonster;
+
+    /// <summary>効果を持つか(効果モンスター・魔法・罠)。</summary>
+    public bool HasEffect => Kind != CardKind.NormalMonster;
 
     public bool HasTargetPart => Parts.Any(p => p.Type == EffectPartType.DestroyTargetMonster);
 
     public CardData ToCardData(int id)
     {
-        if (IsMonster)
+        if (!HasEffect)
         {
             return new CardData(id, Name.Trim(), Kind, Level, Attack, Defense);
         }
@@ -40,8 +47,11 @@ public sealed class CardDraft
         var effect = new CardEffect(
             [.. Parts.Select(p => p.ToAction())],
             HasTargetPart ? TargetSide : null,
-            Kind == CardKind.Trap ? Trigger : null);
-        return new CardData(id, Name.Trim(), Kind, Effect: effect);
+            Kind == CardKind.Trap ? Trigger : null,
+            Kind == CardKind.EffectMonster ? MonsterTrigger : null);
+        return IsMonster
+            ? new CardData(id, Name.Trim(), Kind, Level, Attack, Defense, effect)
+            : new CardData(id, Name.Trim(), Kind, Effect: effect);
     }
 
     public static CardDraft FromCard(CardData card)
@@ -56,6 +66,7 @@ public sealed class CardDraft
             Defense = card.Defense,
             Trigger = card.Effect?.Trigger ?? TrapTrigger.OpponentAttackDeclared,
             TargetSide = card.Effect?.TargetSide ?? MonsterSide.Opponent,
+            MonsterTrigger = card.Effect?.MonsterTrigger ?? MonsterEffectTrigger.Flipped,
         };
         draft.Parts.AddRange(card.Effect?.Actions.Select(EffectPartDraft.FromAction) ?? []);
         return draft;

@@ -25,6 +25,10 @@ public static class DuelLogFormatter
         DuelLogKind.ChangedToDefensePosition => $"{entry.PlayerName}は「{entry.CardName}」を守備表示に変更",
         DuelLogKind.FlipSummoned => $"{entry.PlayerName}は「{entry.CardName}」を反転召喚",
         DuelLogKind.Discarded => $"{entry.PlayerName}は手札の「{entry.CardName}」を捨てた",
+        DuelLogKind.MonsterEffectActivated when entry.TargetCardName is not null || entry.IsTargetHidden =>
+            $"{entry.PlayerName}の「{entry.CardName}」の効果が発動({TargetText(entry)}を対象)",
+        DuelLogKind.MonsterEffectActivated => $"{entry.PlayerName}の「{entry.CardName}」の効果が発動",
+        DuelLogKind.MonsterEffectFizzled => $"{entry.PlayerName}の「{entry.CardName}」の効果は発動しなかった(対象がいない・デッキが足りないなど)",
         DuelLogKind.SpellActivated when entry.TargetCardName is not null || entry.IsTargetHidden =>
             $"{entry.PlayerName}は「{entry.CardName}」を発動({TargetText(entry)}を対象)",
         DuelLogKind.SpellActivated => $"{entry.PlayerName}は「{entry.CardName}」を発動",

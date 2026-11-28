@@ -7,7 +7,7 @@ using CardGame.Core.Turns;
 namespace CardGame.Core.Duels;
 
 /// <summary>
-/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(召喚は Duel.Summons.cs、表示形式の変更は Duel.Positions.cs、魔法は Duel.Spells.cs、罠は Duel.Traps.cs、手札の上限は Duel.HandLimit.cs)。
+/// 1回の対戦。ターン進行・召喚・攻撃のルールを検証し、盤面を更新する(召喚は Duel.Summons.cs、表示形式の変更は Duel.Positions.cs、魔法は Duel.Spells.cs、罠は Duel.Traps.cs、効果モンスターは Duel.MonsterEffects.cs、手札の上限は Duel.HandLimit.cs)。
 /// 操作が拒否された場合は例外ではなく <see cref="ActionResult"/> で理由を返す。
 /// </summary>
 public sealed partial class Duel
@@ -54,6 +54,7 @@ public sealed partial class Duel
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
         if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
+        if (PendingEffectTarget is not null) return ActionResult.Fail(ActionError.EffectTargetPending);
 
         if (CurrentPhase == Phase.End)
         {
@@ -81,6 +82,7 @@ public sealed partial class Duel
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
         if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
+        if (PendingEffectTarget is not null) return ActionResult.Fail(ActionError.EffectTargetPending);
         if (CurrentPhase != Phase.Battle) return ActionResult.Fail(ActionError.WrongPhase);
         if (TurnCount == 1) return ActionResult.Fail(ActionError.CannotAttackOnFirstTurn);
         if (!CurrentPlayer.MonsterZone.Contains(attacker)) return ActionResult.Fail(ActionError.AttackerNotOnYourField);
@@ -135,7 +137,8 @@ public sealed partial class Duel
         var attackerOwner = CurrentPlayer;
         var targetOwner = OpponentPlayer;
 
-        if (target is { Position: BattlePosition.FaceDownDefense })
+        var isTargetFlipped = target is { Position: BattlePosition.FaceDownDefense };
+        if (isTargetFlipped && target is not null)
         {
             _log.Add(DuelLogKind.Flipped, targetOwner, target.Card.Name);
         }
@@ -148,6 +151,13 @@ public sealed partial class Duel
         if (outcome.DamageToTargetOwner > 0) _log.Add(DuelLogKind.Damaged, targetOwner, amount: outcome.DamageToTargetOwner);
 
         UpdateWinner();
+
+        // 攻撃されて表になったモンスターのリバース効果は、戦闘の後に発動する(戦闘で破壊されていても発動する)
+        if (isTargetFlipped && target is not null)
+        {
+            TriggerMonsterEffect(target, targetOwner, MonsterEffectTrigger.Flipped);
+            ResolveTriggeredEffects();
+        }
     }
 
     private static void DrawInitialHand(Player player, int count)

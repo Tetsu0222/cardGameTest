@@ -40,13 +40,19 @@ public static class EffectPartChoices
         _ => "相手の召喚時",
     };
 
+    public static string Label(MonsterEffectTrigger trigger) => trigger switch
+    {
+        MonsterEffectTrigger.Flipped => "リバース(裏側から表になった時)",
+        _ => "召喚に成功した時",
+    };
+
     /// <summary>
     /// カードの種類と発動タイミングで選べる部品。
-    /// 罠は対象を選ぶ画面がまだないため、対象を取る部品は魔法だけで選べる。
+    /// 罠は対象を選ぶ画面がまだないため、対象を取る部品は魔法と効果モンスターだけで選べる。
     /// </summary>
     public static IReadOnlyList<EffectPartType> Available(CardKind kind, TrapTrigger trigger) => kind switch
     {
-        CardKind.Spell => [.. CommonParts, EffectPartType.DestroyTargetMonster],
+        CardKind.Spell or CardKind.EffectMonster => [.. CommonParts, EffectPartType.DestroyTargetMonster],
         CardKind.Trap when trigger == TrapTrigger.OpponentAttackDeclared =>
             [.. CommonParts, EffectPartType.DestroyAttackingMonster, EffectPartType.NegateAttack],
         CardKind.Trap => [.. CommonParts, EffectPartType.DestroySummonedMonster],

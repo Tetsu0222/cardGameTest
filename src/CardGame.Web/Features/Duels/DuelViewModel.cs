@@ -24,6 +24,7 @@ namespace CardGame.Web.Features.Duels;
 /// </list>
 /// CPU のターンは1手ずつ「何をするか(実況・強調表示)→ 結果」の順に間を置いて再生し、途中経過を <see cref="OnChange"/> で通知する。
 /// 罠: あなたの攻撃宣言・召喚には CPU がその場で応じ、CPU の攻撃宣言・召喚には、あなたが発動するか選ぶまで再生を止めて待つ。
+/// 効果モンスターの効果の対象も同様で、CPU の効果は CPU がその場で選び、あなたの効果はあなたが選ぶまで待つ。
 /// </remarks>
 public sealed class DuelViewModel
 {
@@ -118,6 +119,7 @@ public sealed class DuelViewModel
     {
         get
         {
+            if (EffectTargetPrompt is { } targetPrompt) return targetPrompt;
             if (!IsHumanTurn) return "";
             if (Duel.RequiredDiscardCount > 0) return $"捨てる手札を選んでください(あと{Duel.RequiredDiscardCount}枚)。";
             if (PendingSpell is not null) return $"「{PendingSpell.Card.Name}」の対象にするモンスターを選んでください。";
@@ -253,6 +255,7 @@ public sealed class DuelViewModel
     /// </summary>
     public bool IsMonsterClickable(FieldMonster monster)
     {
+        if (IsChoosingEffectTarget) return Duel.FindEffectTargetChoices().Contains(monster);
         if (!IsHumanTurn) return false;
 
         if (PendingPlacement is { Kind: HandActionKind.Summon or HandActionKind.SetMonster })
@@ -271,6 +274,12 @@ public sealed class DuelViewModel
     public async Task ClickMonsterAsync(FieldMonster monster)
     {
         if (!IsMonsterClickable(monster)) return;
+
+        if (IsChoosingEffectTarget)
+        {
+            await ChooseEffectTargetAsync(monster);
+            return;
+        }
 
         if (IsChoosingTributes)
         {
@@ -404,7 +413,7 @@ public sealed class DuelViewModel
                 var action = _cpu.DecideNextAction(Duel);
                 if (action is null) break;
 
-                var commentary = CpuActionCommentary.Create(action, Cpu);
+                var commentary = CpuActionCommentary.Create(action, Cpu, Duel);
                 if (commentary is null)
                 {
                     // フェーズ移動など、見せる必要のない手は待たずに進める
@@ -421,7 +430,7 @@ public sealed class DuelViewModel
                 // 2) 実行する。攻撃宣言・召喚にあなたが罠で応じられるなら、選ぶまで待つ
                 Perform(() => SimpleCpuStrategy.Execute(Duel, action));
                 ErrorMessage = null; // CPU の手が拒否されても、プレイヤーへのエラーとしては出さない
-                if (Duel.PendingResponse?.Responder == Human)
+                while (IsHumanRequiredToAct)
                 {
                     await WaitForHumanResponseAsync();
                 }
@@ -462,6 +471,10 @@ public sealed class DuelViewModel
 
             case CpuActivateTrapAction when Duel.PendingResponse is { } window:
                 _highlightedMonsters.Add(window.TriggerMonster);
+                break;
+
+            case CpuChooseEffectTargetAction choose:
+                _highlightedMonsters.Add(choose.Target);
                 break;
         }
     }
@@ -518,27 +531,34 @@ public sealed class DuelViewModel
     }
 
     /// <summary>あなたの攻撃宣言・召喚に対して、CPU が罠で応じるかを決めて実行する。</summary>
+    /// <summary>
+    /// あなたの操作の後、CPU が応じる必要があれば(罠を発動するか、CPU の効果の対象を選ぶか)、それを行う。
+    /// 応じた結果、さらに CPU が応じる必要が出れば続けて行う。
+    /// </summary>
     private async Task LetCpuRespondAsync()
     {
-        if (Duel.PendingResponse?.Responder != Cpu) return;
+        if (!IsCpuRequiredToAct) return;
 
         IsCpuPlaying = true;
         _skipCpuPlayback = false;
         try
         {
-            var action = _cpu.DecideNextAction(Duel);
-            if (action is null) return;
-
-            if (CpuActionCommentary.Create(action, Cpu) is { } commentary)
+            for (var step = 0; step < MaxCpuStepsPerTurn && IsCpuRequiredToAct; step++)
             {
-                Commentary = commentary;
-                _lifeChanges.Clear();
-                Highlight(action);
-                await ShowAsync();
-            }
+                var action = _cpu.DecideNextAction(Duel);
+                if (action is null) return;
 
-            Perform(() => SimpleCpuStrategy.Execute(Duel, action));
-            ErrorMessage = null;
+                if (CpuActionCommentary.Create(action, Cpu, Duel) is { } commentary)
+                {
+                    Commentary = commentary;
+                    _lifeChanges.Clear();
+                    Highlight(action);
+                    await ShowAsync();
+                }
+
+                Perform(() => SimpleCpuStrategy.Execute(Duel, action));
+                ErrorMessage = null;
+            }
         }
         finally
         {
@@ -546,6 +566,38 @@ public sealed class DuelViewModel
             _highlightedMonsters.Clear();
             NotifyChanged();
         }
+    }
+
+    /// <summary>あなたのターン中に、CPU が罠の発動か効果の対象の選択をする必要があるか。</summary>
+    private bool IsCpuRequiredToAct =>
+        !Duel.IsFinished && (Duel.PendingResponse?.Responder == Cpu || Duel.PendingEffectTarget?.Controller == Cpu);
+
+    /// <summary>あなたが罠の発動か効果の対象の選択をする必要があるか。</summary>
+    private bool IsHumanRequiredToAct =>
+        !Duel.IsFinished && (Duel.PendingResponse?.Responder == Human || Duel.PendingEffectTarget?.Controller == Human);
+
+    // ---- 効果モンスターの効果の対象 ----
+
+    /// <summary>あなたの効果モンスターの効果の対象を選んでいる途中か(CPU のターン中も含む)。</summary>
+    public bool IsChoosingEffectTarget => !Duel.IsFinished && Duel.PendingEffectTarget?.Controller == Human;
+
+    /// <summary>効果の対象を選ぶよう促す文言。選んでいなければ null。</summary>
+    public string? EffectTargetPrompt => IsChoosingEffectTarget && Duel.PendingEffectTarget is { } pending
+        ? $"「{pending.Source.Card.Name}」の効果が発動しました。対象にするモンスターを選んでください。"
+        : null;
+
+    private async Task ChooseEffectTargetAsync(FieldMonster target)
+    {
+        Perform(() => Duel.ChooseEffectTarget(target));
+
+        if (_humanResponse is { } response)
+        {
+            // CPU のターン中なら、待っている再生処理に戻す
+            response.TrySetResult();
+            return;
+        }
+
+        await LetCpuRespondAsync();
     }
 
     /// <summary>画面に反映し、スキップされていなければ少し待つ。</summary>
@@ -638,9 +690,17 @@ public sealed class DuelViewModel
     private void Perform(Func<ActionResult> action)
     {
         (Player Player, int LifePoints)[] before = [(Human, Human.LifePoints), (Cpu, Cpu.LifePoints)];
+        var logCountBefore = Duel.Log.Count;
         _lifeChanges.Clear();
 
         var result = action();
+
+        // 効果モンスターの効果は操作の結果として自動で発動するため、発動したことを実況に出す
+        var effect = Duel.Log.Skip(logCountBefore).LastOrDefault(e => e.Kind == DuelLogKind.MonsterEffectActivated);
+        if (effect is not null)
+        {
+            Commentary = new Commentary(DuelLogFormatter.Format(effect));
+        }
 
         foreach (var (player, lifePoints) in before)
         {

@@ -20,6 +20,7 @@ public sealed partial class Duel
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
         if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
+        if (PendingEffectTarget is not null) return ActionResult.Fail(ActionError.EffectTargetPending);
         if (CurrentPhase is not (Phase.Main1 or Phase.Main2)) return ActionResult.Fail(ActionError.WrongPhase);
         if (position == BattlePosition.FaceUpDefense) return ActionResult.Fail(ActionError.InvalidPosition);
         if (handIndex < 0 || handIndex >= CurrentPlayer.Hand.Count) return ActionResult.Fail(ActionError.InvalidHandIndex);
@@ -114,8 +115,13 @@ public sealed partial class Duel
         {
             _log.Add(DuelLogKind.Summoned, CurrentPlayer, card.Name);
 
-            // 召喚成功時(セットは含まない)に、相手が罠を発動できる機会を開く
-            TryOpenResponseWindow(TrapTrigger.OpponentMonsterSummoned, summoned, attackTarget: null);
+            // 召喚成功時(セットは含まない)の効果を発動させ、相手が罠を発動できる機会を開く。
+            // 効果は罠の機会が閉じてから処理する(機会を開かなければすぐに処理する)
+            TriggerMonsterEffect(summoned, CurrentPlayer, MonsterEffectTrigger.Summoned);
+            if (!TryOpenResponseWindow(TrapTrigger.OpponentMonsterSummoned, summoned, attackTarget: null))
+            {
+                ResolveTriggeredEffects();
+            }
         }
 
         return ActionResult.Success;

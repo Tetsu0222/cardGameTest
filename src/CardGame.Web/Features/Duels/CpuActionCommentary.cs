@@ -1,5 +1,6 @@
 using CardGame.AI.Strategies;
 using CardGame.Core.Cards;
+using CardGame.Core.Duels;
 using CardGame.Core.Players;
 
 namespace CardGame.Web.Features.Duels;
@@ -8,8 +9,12 @@ namespace CardGame.Web.Features.Duels;
 public static class CpuActionCommentary
 {
     /// <returns>実況。フェーズ移動など、実況しない手は null。</returns>
-    public static Commentary? Create(CpuAction action, Player cpu) => action switch
+    /// <param name="duel">対戦の状態(効果の対象を選ぶ手で、どの効果かを調べるのに使う)。</param>
+    public static Commentary? Create(CpuAction action, Player cpu, Duel duel) => action switch
     {
+        CpuChooseEffectTargetAction choose when duel.PendingEffectTarget is { } pending =>
+            new Commentary($"{cpu.Name}の「{pending.Source.Card.Name}」の効果:{MonsterName(choose.Target)}を対象に選択", pending.Source.Card),
+
         CpuSummonAction { Position: BattlePosition.FaceDownDefense } summon =>
             new Commentary($"{cpu.Name}は{TributePrefix(summon.Tributes)}モンスターを{(HasTributes(summon.Tributes) ? "アドバンスセット" : "セット")}"),
 

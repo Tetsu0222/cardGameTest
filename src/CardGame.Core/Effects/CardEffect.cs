@@ -14,8 +14,10 @@ public enum MonsterSide
 /// </summary>
 /// <param name="Actions">上から順に処理する効果部品。</param>
 /// <param name="TargetSide">対象を取る場合、対象にできるモンスターの側。対象を取らない効果は null。</param>
-/// <param name="Trigger">罠の発動タイミング。罠では必須、魔法では null。</param>
+/// <param name="Trigger">罠の発動タイミング。罠では必須、それ以外では null。</param>
+/// <param name="MonsterTrigger">効果モンスターの効果の発動タイミング。効果モンスターでは必須、それ以外では null。</param>
 public sealed record CardEffect(
     IReadOnlyList<EffectAction> Actions,
     MonsterSide? TargetSide = null,
-    TrapTrigger? Trigger = null);
+    TrapTrigger? Trigger = null,
+    MonsterEffectTrigger? MonsterTrigger = null);

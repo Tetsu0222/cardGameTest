@@ -90,9 +90,33 @@ public class CustomCardTests
     }
 
     [Fact]
-    public void Validate_RejectsEffectMonster()
+    public void Validate_RequiresEffectForEffectMonster()
     {
-        Assert.Contains(CustomCardError.UnsupportedKind, Validate(Monster() with { Kind = CardKind.EffectMonster }));
+        Assert.Contains(CustomCardError.NoEffect, Validate(Monster() with { Kind = CardKind.EffectMonster }));
+    }
+
+    [Fact]
+    public void Validate_AcceptsEffectMonster_WithTriggerAndEffect()
+    {
+        var card = Monster() with
+        {
+            Kind = CardKind.EffectMonster,
+            Effect = new CardEffect([new DestroyTargetMonsterAction()], MonsterSide.Both, MonsterTrigger: MonsterEffectTrigger.Flipped),
+        };
+
+        Assert.Empty(Validate(card));
+    }
+
+    [Fact]
+    public void Validate_ChecksStatsOfEffectMonster()
+    {
+        var card = Monster(attack: 4100) with
+        {
+            Kind = CardKind.EffectMonster,
+            Effect = new CardEffect([new DealDamageAction(300)], MonsterTrigger: MonsterEffectTrigger.Summoned),
+        };
+
+        Assert.Contains(CustomCardError.StatOutOfRange, Validate(card));
     }
 
     // ---- 検証: 効果 ----

@@ -6,8 +6,16 @@ namespace CardGame.Web.Shared;
 public static class CardEffectText
 {
     public static string Describe(CardEffect effect) =>
-        TriggerText(effect.Trigger)
+        MonsterTriggerText(effect.MonsterTrigger)
+        + TriggerText(effect.Trigger)
         + string.Concat(effect.Actions.Select(action => DescribeAction(action, effect.TargetSide) + "。"));
+
+    private static string MonsterTriggerText(MonsterEffectTrigger? trigger) => trigger switch
+    {
+        MonsterEffectTrigger.Flipped => "リバース:",
+        MonsterEffectTrigger.Summoned => "このカードの召喚に成功した時:",
+        _ => "",
+    };
 
     private static string TriggerText(TrapTrigger? trigger) => trigger switch
     {

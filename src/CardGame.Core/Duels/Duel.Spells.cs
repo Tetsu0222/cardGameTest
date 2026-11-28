@@ -126,6 +126,7 @@ public sealed partial class Duel
     {
         if (IsFinished) return ActionResult.Fail(ActionError.DuelFinished);
         if (PendingResponse is not null) return ActionResult.Fail(ActionError.ResponsePending);
+        if (PendingEffectTarget is not null) return ActionResult.Fail(ActionError.EffectTargetPending);
         if (CurrentPhase is not (Phase.Main1 or Phase.Main2)) return ActionResult.Fail(ActionError.WrongPhase);
         return ActionResult.Success;
     }

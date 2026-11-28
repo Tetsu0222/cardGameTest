@@ -28,6 +28,11 @@ public static class ValidateCustomCard
                 CheckMonster(card, options, errors);
                 break;
 
+            case CardKind.EffectMonster:
+                CheckMonster(card, options, errors);
+                CheckEffect(card, options, errors);
+                break;
+
             case CardKind.Spell or CardKind.Trap:
                 CheckEffect(card, options, errors);
                 break;

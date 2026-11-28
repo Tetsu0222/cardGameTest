@@ -37,6 +37,7 @@ public class CardCatalogDataTests
 
     [Theory]
     [InlineData(CardKind.NormalMonster)]
+    [InlineData(CardKind.EffectMonster)]
     [InlineData(CardKind.Spell)]
     [InlineData(CardKind.Trap)]
     public void DefaultDeck_ContainsEachCardKind(CardKind kind)
@@ -50,7 +51,7 @@ public class CardCatalogDataTests
     [InlineData(2)]
     public void DefaultDeck_ContainsMonstersForEachTributeCount(int tributeCount)
     {
-        var monsters = TestCatalog.DefaultDeckCards().Where(c => c.Kind == CardKind.NormalMonster);
+        var monsters = TestCatalog.DefaultDeckCards().Where(c => c.Kind is CardKind.NormalMonster or CardKind.EffectMonster);
 
         Assert.Contains(monsters, card => CountRequiredTributes.Execute(card) == tributeCount);
     }

@@ -75,8 +75,22 @@
             </div>
             <div class="note">レベル5・6はリリース1体、レベル7以上はリリース2体で召喚します。</div>
         }
-        else
+
+        @if (Vm.Draft.HasEffect)
         {
+            @if (Vm.Draft.Kind == CardKind.EffectMonster)
+            {
+                <label class="field">
+                    <span class="field-label">効果が発動するタイミング</span>
+                    <select class="form-select form-select-sm" @bind="Vm.Draft.MonsterTrigger">
+                        @foreach (var trigger in Enum.GetValues<MonsterEffectTrigger>())
+                        {
+                            <option value="@trigger">@EffectPartChoices.Label(trigger)</option>
+                        }
+                    </select>
+                </label>
+            }
+
             @if (Vm.Draft.Kind == CardKind.Trap)
             {
                 <label class="field">
@@ -183,13 +197,13 @@
             <CardView Card="Vm.Preview" />
         </div>
         <div class="preview-text">
+            @if (Vm.Draft.IsMonster)
+            {
+                <div>@($"レベル{Vm.Preview.Level} 攻撃力{Vm.Preview.Attack} / 守備力{Vm.Preview.Defense}")</div>
+            }
             @if (Vm.Preview.Effect is { } effect)
             {
-                @CardEffectText.Describe(effect)
-            }
-            else if (Vm.Draft.IsMonster)
-            {
-                @($"レベル{Vm.Preview.Level} 攻撃力{Vm.Preview.Attack} / 守備力{Vm.Preview.Defense}")
+                <div>@CardEffectText.Describe(effect)</div>
             }
         </div>
     </section>
@@ -198,7 +212,8 @@
 @code {
     private static readonly (CardKind Value, string Label)[] Kinds =
     [
-        (CardKind.NormalMonster, "モンスター"),
+        (CardKind.NormalMonster, "通常モンスター"),
+        (CardKind.EffectMonster, "効果モンスター"),
         (CardKind.Spell, "魔法"),
         (CardKind.Trap, "罠"),
     ];

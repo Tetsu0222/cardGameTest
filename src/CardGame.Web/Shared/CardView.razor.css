@@ -60,6 +60,16 @@
     color: #fff;
 }
 
+.card-view.effect-monster {
+    background: #e76f51;
+    border-color: #8a3a22;
+    color: #fff;
+}
+
+.card-view.effect-monster .card-level {
+    color: #ffe066;
+}
+
 .card-view.trap {
     background: #b5179e;
     border-color: #6a0f5c;

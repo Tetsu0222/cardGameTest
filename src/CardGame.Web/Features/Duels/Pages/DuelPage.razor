@@ -28,6 +28,10 @@
                                 OnActivate="Vm.RespondWithTrap"
                                 OnPass="Vm.PassResponse" />
         }
+        else if (Vm.EffectTargetPrompt is { } targetPrompt)
+        {
+            <div class="target-prompt">@targetPrompt</div>
+        }
 
         <FieldView Slots="Vm.Human.MonsterSlots"
                    Selected="Vm.SelectedAttacker"
